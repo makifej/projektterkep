@@ -87,6 +87,12 @@ Megszámolja a térkép-lekérdezéseket (`graphify query/explain/path`) és az 
 következő célzott (offset/limit) fájlolvasásokat, és összeveti azzal, amennyi a
 teljes fájlok beolvasása lett volna.
 
+**Helyi kimutatás** a mérésekről, élő kipróbálással és a projektek térképével:
+
+```
+$PY projektterkep/kimutatas.py        # http://localhost:4478
+```
+
 **Első mérésünk (2026-11-07):**
 
 | Mérés | Térkép nélkül | Térképpel | Spórolás |

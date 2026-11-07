@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Projekttérkép mérés</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--hat:#181818;--felulet:#1F1F1F;--vonal:#313131;--szov:#F2F2F0;--halk:#A3A3A0;--kiem:#8BE28B;--szurke:#5C5C5A;--rossz:#E5866B}
+*{box-sizing:border-box;margin:0}
+html{background:var(--hat)}
+body{background:var(--hat);color:var(--szov);font-family:Geist,system-ui,sans-serif;font-size:16px;line-height:24px;font-variant-numeric:tabular-nums}
+main{max-width:1120px;margin:0 auto;padding:32px 24px 64px}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:64px}
+h1{font-size:16px;line-height:24px;font-weight:600}
+.elo{font-size:14px;line-height:20px;color:var(--halk);display:flex;align-items:center;gap:8px}
+.pont{width:8px;height:8px;border-radius:9999px;background:var(--kiem)}
+.cimke{font-size:18px;line-height:28px;color:var(--halk)}
+.fo{display:flex;flex-wrap:wrap;gap:24px 64px;margin:16px 0 32px}
+.nagy{font-size:96px;line-height:1;font-weight:600;letter-spacing:-.02em;color:var(--kiem)}
+.egyseg{font-size:18px;line-height:28px;margin-top:8px}
+.lead{font-size:18px;line-height:28px;max-width:720px;text-wrap:pretty}
+.halk{color:var(--halk)}
+section{margin-top:80px}
+h2{font-size:24px;line-height:32px;font-weight:600;margin-bottom:8px;text-wrap:balance}
+.al{font-size:14px;line-height:20px;color:var(--halk);margin-bottom:24px;max-width:720px;text-wrap:pretty}
+.ut{display:grid;grid-template-columns:140px 1fr;gap:12px 16px;align-items:center}
+.ut .nev{font-size:14px;line-height:20px;color:var(--halk)}
+.sav{height:40px;border-radius:8px;background:var(--felulet);position:relative;overflow:hidden}
+.sav i{position:absolute;inset:0 auto 0 0;border-radius:8px;transition:width .8s cubic-bezier(.32,.72,0,1)}
+.sav b{position:absolute;left:12px;top:8px;font-weight:600;font-size:16px;line-height:24px;color:var(--hat);white-space:nowrap}
+.sav b.kint{color:var(--szov)}
+.kerdes{padding:24px 0;border-top:1px solid var(--vonal)}
+.kerdes:first-child{border-top:0;padding-top:0}
+.kfej{display:flex;justify-content:space-between;gap:16px;align-items:baseline;margin-bottom:12px}
+.kfej .k{font-weight:500;text-wrap:pretty}
+.kfej .p{font-weight:600;white-space:nowrap}
+.kicsi{font-size:14px;line-height:20px;color:var(--halk);margin-top:8px;overflow-wrap:anywhere}
+.ketsav{display:grid;gap:8px}
+.mini{height:24px;border-radius:6px;background:var(--felulet);position:relative;overflow:hidden}
+.mini i{position:absolute;inset:0 auto 0 0;border-radius:6px}
+.mini span{position:absolute;left:8px;top:2px;font-size:12px;line-height:20px;color:var(--szov);white-space:nowrap}
+form{display:grid;grid-template-columns:200px 1fr auto;gap:12px}
+select,input,button{font:inherit;color:var(--szov);background:var(--felulet);border:1px solid var(--vonal);border-radius:8px;padding:12px 16px;min-width:0}
+button{background:var(--kiem);color:var(--hat);border:0;font-weight:600;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:2px solid var(--kiem);outline-offset:2px}
+#eredm{margin-top:24px}
+.terkepek{display:flex;flex-wrap:wrap;gap:8px}
+.terkepek a{font-size:14px;line-height:20px;color:var(--szov);text-decoration:none;background:var(--felulet);border:1px solid var(--vonal);border-radius:9999px;padding:8px 16px}
+.terkepek a:hover{border-color:var(--kiem)}
+iframe{width:100%;height:560px;border:1px solid var(--vonal);border-radius:12px;background:#0d0d0d;margin-top:24px}
+.lab{font-size:14px;line-height:20px;color:var(--halk);max-width:720px;text-wrap:pretty}
+.lab p+p{margin-top:12px}
+@media (max-width:700px){form{grid-template-columns:1fr}.ut{grid-template-columns:1fr;gap:4px}.ut .nev{margin-top:8px}}
+@media (max-width:480px){main{padding:24px 16px 48px}.nagy{font-size:60px}header{margin-bottom:48px}section{margin-top:64px}iframe{height:420px}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Projekttérkép, saját mérés</h1>
+    <div class="elo"><span class="pont"></span><span id="allapot">Betöltés</span></div>
+  </header>
+
+  <div class="cimke">Valós használat a Claude Code naplóiból</div>
+  <div class="fo">
+    <div><div class="nagy" id="pct">0%</div><div class="egyseg">kevesebb token</div></div>
+    <div><div class="nagy" id="spor">0</div><div class="egyseg">megspórolt token</div></div>
+  </div>
+  <p class="lead" id="lead">Az élő mérés a háttérben fut, kb. egy perc.</p>
+
+  <section>
+    <h2>Ugyanaz a tudás, két úton</h2>
+    <p class="al">Amit a térkép-lekérdezések után célzottan olvastam, összevetve azzal, amennyi a teljes fájlok beolvasása lett volna.</p>
+    <div class="ut" id="elosav"></div>
+  </section>
+
+  <section>
+    <h2>Próbáld ki egy kérdéssel</h2>
+    <p class="al">Válassz projektet, és írd be, mit keresnél a kódban. A mérés ingyenes, nincs LLM-hívás, és bekerül a lenti listába.</p>
+    <form id="urlap">
+      <select id="projekt" aria-label="Projekt"></select>
+      <input id="kerdes" placeholder="pl. melyik szkript posztol Facebookra" aria-label="Kérdés" maxlength="300">
+      <button id="gomb">Mérés</button>
+    </form>
+    <div id="eredm"></div>
+  </section>
+
+  <section>
+    <h2>Kérdésenként</h2>
+    <p class="al" id="osszal"></p>
+    <div id="lista"></div>
+  </section>
+
+  <section>
+    <h2>Így néz ki egy térkép</h2>
+    <p class="al">A gráf, amiből az agent dolgozik: függvények, fájlok, mappák és a köztük lévő kapcsolatok. Kattints egy projektre.</p>
+    <div class="terkepek" id="terkepek"></div>
+    <iframe id="keret" title="Projekt térképe" hidden></iframe>
+  </section>
+
+  <section class="lab">
+    <h2 style="color:var(--szov)">Hogyan mérünk</h2>
+    <p>A token becslés: karakter osztva 4-gyel, mindkét oldalon ugyanígy. Kérdésenként térkép nélkül kulcsszavas keresés fut, és az 5 legjobb találat teljes fájlja számít. Térképpel a lekérdezés kimenete és az első 3 megtalált hely körüli 40-40 sor.</p>
+    <p>A valós használatnál a viszonyítás feltételezés: hogy térkép nélkül a teljes fájlt olvastam volna be. Ahol a kulcsszavas keresés semmit nem talált, az a mérés nem számít bele az összesítésbe. A negatív eredmények is látszanak.</p>
+  </section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const sz=n=>n==null?'nincs adat':Math.round(n).toLocaleString('hu-HU');
+const pc=n=>n==null?'nincs adat':n.toLocaleString('hu-HU',{maximumFractionDigits:1})+'%';
+let projektekBetoltve=false;
+
+function sav(nev,ertek,max,szin,szoveg){
+  const w=max?Math.max(2,100*ertek/max):0;
+  const kint=w<35;
+  const szovSzin=(kint||szin==='var(--szurke)')?'var(--szov)':'var(--hat)';
+  return `<div class="nev">${nev}</div><div class="sav"><i style="width:${w}%;background:${szin}"></i><b style="color:${szovSzin};${kint?`left:calc(${w}% + 12px)`:''}">${szoveg}</b></div>`;
+}
+function kerdesBlokk(m){
+  const n=m.terkep_nelkul.token, v=m.terkeppel.token, max=Math.max(n,v,1);
+  const p=m.sporolt_szazalek;
+  const szin=p==null?'var(--halk)':(p<0?'var(--rossz)':'var(--kiem)');
+  const pszov=p==null?'nem mérhető':(p<0?`${pc(-p)} több`:`${pc(p)} kevesebb`);
+  return `<div class="kerdes"><div class="kfej"><span class="k">${esc(m.kerdes)}</span><span class="p" style="color:${szin}">${pszov}</span></div>
+  ${n?`<div class="ketsav">
+   <div class="mini"><i style="width:${100*n/max}%;background:var(--szurke)"></i><span>Térkép nélkül: ${sz(n)} token</span></div>
+   <div class="mini"><i style="width:${100*v/max}%;background:${p<0?'var(--rossz)':'var(--kiem)'};opacity:.45"></i><span>Térképpel: ${sz(v)} token</span></div>
+  </div>`:''}
+  <div class="kicsi">${esc(m.projekt)} · ${n?`${m.terkep_nelkul.talalt_fajl} fájlban talált kulcsszót`:'a kulcsszavas keresés semmit nem talált'}${m.terkeppel.reszletek.length?' · térkép: '+m.terkeppel.reszletek.map(esc).join(', '):''}</div></div>`;
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+async function frissit(){
+  try{
+    const d=await (await fetch('/api/adat')).json();
+    const e=d.elo;
+    if(e){
+      $('pct').textContent=pc(e.sporolt_szazalek);
+      $('spor').textContent=sz(e.sporolt_token);
+      $('lead').textContent=`${e.lekerdezes} térkép-lekérdezés és ${e.celzott_olvasas} célzott fájlolvasás alapján. Térképpel ${sz(e.terkeppel_token)} token ment a Claude-nak, a teljes fájlok ${sz(e.teljes_fajl_token)} tokenje helyett.`;
+      const max=e.teljes_fajl_token;
+      $('elosav').innerHTML=sav('Térkép nélkül',max,max,'var(--szurke)',sz(max)+' token')+sav('Térképpel',e.terkeppel_token,max,'var(--kiem)',sz(e.terkeppel_token)+' token');
+      $('allapot').textContent='Élő, frissítve '+d.elo_ido;
+    } else $('allapot').textContent='Élő mérés fut';
+    const o=d.osszesites;
+    $('osszal').textContent=o.ervenyes?`${o.ervenyes} értékelhető mérés összesen: ${sz(o.terkep_nelkul_token)} token helyett ${sz(o.terkeppel_token)}, vagyis ${pc(o.sporolt_szazalek)} kevesebb. ${o.meres-o.ervenyes?`${o.meres-o.ervenyes} mérésnél a kulcsszavas keresés semmit nem talált, azok nem számítanak bele.`:''}`:'Még nincs mérés.';
+    $('lista').innerHTML=d.meresek.map(kerdesBlokk).join('');
+    if(!projektekBetoltve){
+      projektekBetoltve=true;
+      const ajanlott=['hirdetes-figyelo','quicknews','leadi'];
+      const lista=d.projektek.slice().sort((a,b)=>(ajanlott.indexOf(b.nev)>-1)-(ajanlott.indexOf(a.nev)>-1));
+      $('projekt').innerHTML=lista.map(p=>`<option>${esc(p.nev)}</option>`).join('');
+      $('terkepek').innerHTML=lista.filter(p=>p.html).slice(0,16).map(p=>`<a href="#" data-n="${esc(p.nev)}">${esc(p.nev)}${p.csomopont?` · ${sz(p.csomopont)} csomópont`:''}</a>`).join('');
+    }
+  }catch(err){$('allapot').textContent='A szerver nem válaszol'}
+}
+$('terkepek').addEventListener('click',ev=>{
+  const a=ev.target.closest('a'); if(!a)return; ev.preventDefault();
+  const k=$('keret'); k.hidden=false; k.src='/terkep/'+encodeURIComponent(a.dataset.n);
+});
+$('urlap').addEventListener('submit',async ev=>{
+  ev.preventDefault();
+  const kerdes=$('kerdes').value.trim(); if(!kerdes)return;
+  $('gomb').disabled=true; $('eredm').innerHTML='<p class="al">Mérés fut…</p>';
+  try{
+    const r=await fetch('/api/meres',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projekt:$('projekt').value,kerdes})});
+    const d=await r.json();
+    $('eredm').innerHTML=d.hiba?`<p class="al">${esc(d.hiba)}</p>`:kerdesBlokk(d);
+    frissit();
+  }catch(e){$('eredm').innerHTML='<p class="al">A mérés nem sikerült.</p>'}
+  $('gomb').disabled=false;
+});
+frissit(); setInterval(frissit,15000);
+</script>
+</body>
+</html>
