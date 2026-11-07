@@ -57,6 +57,49 @@ graphify explain "<csomópont>" --graph ...
 graphify path "A" "B" --graph ...
 ```
 
+## Tokenmérés
+
+A Projekttérkép saját mérője megmutatja, mennyit spórol, LLM nélkül, ingyen.
+A token becslés: karakter / 4, mindkét oldalra ugyanaz a szabály.
+
+**Kérdésenként**, ugyanarra a kérdésre két út:
+
+```
+$PY projektterkep/projektterkep.py <projekt> --meres "hol küldjük el a levelet?"
+$PY projektterkep/projektterkep.py --mappa ~/barmi --meres "..."
+$PY projektterkep/projektterkep.py --meres-osszesites
+```
+
+- *Térkép nélkül:* kulcsszavas keresés a projekt szövegfájljaiban, és az 5 legtöbb
+  kulcsszót tartalmazó fájl teljes beolvasása.
+- *Térképpel:* a `graphify query` kimenete, plusz az első 3 megtalált hely körüli
+  40-40 sor.
+
+Minden mérés a `graphify-out/meresek.jsonl` naplóba kerül.
+
+**Valós használat** a Claude Code munkamenet-naplóiból:
+
+```
+$PY projektterkep/projektterkep.py --elo-meres
+```
+
+Megszámolja a térkép-lekérdezéseket (`graphify query/explain/path`) és az utánuk
+következő célzott (offset/limit) fájlolvasásokat, és összeveti azzal, amennyi a
+teljes fájlok beolvasása lett volna.
+
+**Első mérésünk (2026-11-07):**
+
+| Mérés | Térkép nélkül | Térképpel | Spórolás |
+|---|---:|---:|---:|
+| 6 kérdés, 3 projekt | 126 271 token | 21 268 token | 83,2% |
+| Valós használat: 20 lekérdezés, 11 célzott olvasás | 161 721 token | 24 569 token | 84,8% |
+
+A kérdések szórása nagy: 95% fölött volt, ahol a kulcsszó sok nagy fájlban
+szerepelt, és -51%, ahol a keresés két kis fájlt talált, a térkép pedig
+nagyobb kimenetet adott. Két kérdésnél a kulcsszavas keresés semmit nem talált
+(a magyar ragozás miatt), ezek nem számítanak bele. A valós használatnál a
+viszonyítási alap feltételezés: hogy térkép nélkül a teljes fájl kellett volna.
+
 ## Kimenet
 
 - `graphify-out/projektek/<projekt>/`: `graph.json`, `GRAPH_REPORT.md`, `graph.html`

@@ -251,7 +251,37 @@ def main():
     ap.add_argument("--lista", action="store_true", help="csak listázza a projekteket")
     ap.add_argument("--nincs-osszevonas", action="store_true", help="ne készüljön összevont gráf")
     ap.add_argument("--szalak", type=int, default=max(2, (os.cpu_count() or 4) - 2))
+    ap.add_argument("--meres", metavar="KERDES", action="append", default=[],
+                    help="tokenmérés erre a kérdésre: térkép nélkül vs. térképpel (ismételhető); "
+                         "a projektet a projektnév vagy a --mappa adja meg")
+    ap.add_argument("--meres-osszesites", action="store_true", help="az eddigi mérések összesítése")
+    ap.add_argument("--elo-meres", action="store_true",
+                    help="valós használat a Claude Code munkamenet-naplóiból")
     a = ap.parse_args()
+
+    if a.meres or a.meres_osszesites or a.elo_meres:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import meres as M
+        naplo = KIMENET / "meresek.jsonl"
+        if a.meres:
+            celok = [Path(m).expanduser() for m in a.mappa] or [GYOKER / n for n in a.projektek]
+            if len(celok) != 1 or not celok[0].is_dir():
+                sys.exit("Méréshez pontosan egy projektet adj meg (projektnév vagy --mappa).")
+            proj = celok[0]
+            graph = kimenet_mappa(proj) / "graph.json"
+            if not graph.exists():
+                sys.exit(f"Nincs még térkép: {graph}. Előbb készítsd el.")
+            if a.mappa:
+                naplo = KULSO_KIMENET / "meresek.jsonl"
+            for k in a.meres:
+                print(json.dumps(M.meres(proj, graph, proj.parent, k, naplo), ensure_ascii=False))
+        if a.meres_osszesites:
+            print(json.dumps({"munkaterulet": M.osszesites(KIMENET / "meresek.jsonl"),
+                              "kulso_mappak": M.osszesites(KULSO_KIMENET / "meresek.jsonl")},
+                             ensure_ascii=False))
+        if a.elo_meres:
+            print(json.dumps(M.elo_meres(), ensure_ascii=False))
+        return
 
     if a.hol:
         print(kimenet_mappa(Path(a.hol).expanduser()) / "graph.json")
