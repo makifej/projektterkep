@@ -1,0 +1,8 @@
+Projekttérkép
+Copyright (c) 2026 Henriette Novak
+
+This project uses graphify (https://github.com/Graphify-Labs/graphify),
+Copyright Graphify Labs, as a separately installed dependency (PyPI package
+"graphifyy"). graphify is licensed under the Apache License 2.0 and the MIT
+License. No graphify source code is included in this repository; its own
+LICENSE and NOTICE files apply to it.
