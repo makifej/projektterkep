@@ -16,7 +16,7 @@ Ingyenes rész (alapértelmezés, nincs LLM-hívás):
 Futtatás (a graphify saját Pythonjával):
   PY=~/.local/share/uv/tools/graphifyy/bin/python
   $PY projektterkep/projektterkep.py                 # minden projekt + összevont gráf
-  $PY projektterkep/projektterkep.py leadi sorcerer  # csak ezek
+  $PY projektterkep/projektterkep.py egyik masik    # csak ezek
   $PY projektterkep/projektterkep.py --lista         # projektek listája
 """
 from __future__ import annotations
@@ -49,8 +49,8 @@ def projektek() -> list[Path]:
 
 
 def kimenet_mappa(proj: Path) -> Path:
-    """Hova kerül egy projekt térképe. A MARKETING projektjei (a szimbolikus
-    linkkel bekötöttek is, pl. quicknews) a MARKETING/graphify-out alá,
+    """Hova kerül egy projekt térképe. A munkaterület projektjei (a szimbolikus
+    linkkel bekötöttek is) a munkaterület graphify-out mappája alá,
     minden más mappa a ~/.projektterkep alá."""
     cel = proj.resolve()
     for p in projektek():
@@ -209,7 +209,7 @@ def egy_projekt(proj_str: str) -> dict:
 
 def osszevon(nevek: list[str]) -> dict:
     """Az összes projekt kinyerését egy gráfba fűzi (az azonosítók projektenként egyediek,
-    mert minden source_file a MARKETING-hez képest relatív)."""
+    mert minden source_file a munkaterülethez képest relatív)."""
     nodes, edges, seen = [], [], set()
     for nev in nevek:
         f = PROJEKT_KIMENET / nev / "extraction.json"
@@ -229,7 +229,7 @@ def osszevon(nevek: list[str]) -> dict:
             s, t = atnev.get(e["source"]), atnev.get(e["target"])
             if s and t:
                 edges.append({**e, "source": s, "target": t})
-    gyoker_id = "marketing::gyoker"
+    gyoker_id = "munkaterulet::gyoker"
     nodes.append({"id": gyoker_id, "label": GYOKER.name, "file_type": "document",
                   "node_kind": "gyoker", "source_file": ".", "source_location": "L1", "_origin": "ast"})
     for n in list(nodes):

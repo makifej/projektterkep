@@ -150,8 +150,7 @@ async function frissit(){
     $('lista').innerHTML=d.meresek.map(kerdesBlokk).join('');
     if(!projektekBetoltve){
       projektekBetoltve=true;
-      const ajanlott=['hirdetes-figyelo','quicknews','leadi'];
-      const lista=d.projektek.slice().sort((a,b)=>(ajanlott.indexOf(b.nev)>-1)-(ajanlott.indexOf(a.nev)>-1));
+      const lista=d.projektek.slice().sort((a,b)=>(b.csomopont||0)-(a.csomopont||0));
       $('projekt').innerHTML=lista.map(p=>`<option>${esc(p.nev)}</option>`).join('');
       $('terkepek').innerHTML=lista.filter(p=>p.html).slice(0,16).map(p=>`<a href="#" data-n="${esc(p.nev)}">${esc(p.nev)}${p.csomopont?` · ${sz(p.csomopont)} csomópont`:''}</a>`).join('');
     }
