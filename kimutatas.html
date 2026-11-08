@@ -42,6 +42,7 @@ main{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:32px 24p
 .status{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;font-size:14px;line-height:20px;color:var(--muted)}
 .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--lime);color:var(--lime);border-radius:9999px;padding:0 12px;font-size:12px;line-height:24px;font-weight:600}
 .pill i{width:8px;height:8px;border-radius:9999px;background:currentColor}
+.upd{color:var(--lime);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pill.busy{border-color:#F2D36B;color:#F2D36B}
 .pill.busy i{animation:blink 1.4s var(--ease) infinite}
 @keyframes blink{50%{opacity:.3}}
@@ -253,7 +254,7 @@ function eloRajz(e){
 async function frissit(){
   try{
     const d=await (await fetch('/api/adat')).json();
-    if(d.elo){$('pill').classList.remove('busy');$('pillT').textContent='Élő';$('allapot').textContent=`Frissítve ${d.elo_ido}, a Claude Code naplóiból ezen a gépen. Semmi nem megy ki innen.`;eloRajz(d.elo)}
+    if(d.elo){$('pill').classList.remove('busy');$('pillT').textContent='Élő';$('allapot').innerHTML=`<b class="upd">Frissítve ${esc(d.elo_ido)}</b>, a Claude Code naplóiból ezen a gépen. Semmi nem megy ki innen.`;eloRajz(d.elo)}
     else{$('pillT').textContent='Mérés fut';$('allapot').textContent='A Claude Code naplóit olvasom ezen a gépen, ez az első betöltéskor kb. fél perc.'}
     const o=d.osszesites;
     $('osszal').textContent=o.ervenyes?`${o.ervenyes} értékelhető mérés, ${pc(o.sporolt_szazalek)} kevesebb token összesen`:'';
