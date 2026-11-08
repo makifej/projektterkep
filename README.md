@@ -87,7 +87,7 @@ Megszámolja a választ adó térkép-lekérdezéseket (`graphify query/explain/
 és az utánuk következő célzott fájlolvasásokat a lekérdezett projektben (Read
 offset/limit-tel, vagy a parancssorban `sed -n`, `head`, `tail` és `grep`
 környező sorokkal), és összeveti azzal, amennyi a teljes fájlok beolvasása lett
-volna.
+volna. Ami így is a teljes fájlt hozta, az nem számít célzott olvasásnak.
 
 **Helyi kimutatás** a mérésekről, élő kipróbálással és a projektek térképével:
 

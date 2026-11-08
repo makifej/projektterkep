@@ -247,12 +247,78 @@ def _operandusok(arg: list[str], ertekes: set[str]) -> list[str]:
     return ki
 
 
-def _lepes_olvas(le: list[str]) -> tuple[str | None, list[str]]:
-    """('celzott', fájlok), ('forras', fájlok) cat/nl esetén, vagy (None, [])."""
+SED_CIM = re.compile(r"^\s*(\d+|\$)\s*(?:,\s*(\d+|\$|\+\d+))?\s*p\s*$")
+
+
+def _sed_tartomany(szkriptek: list[str]):
+    """Egy `sed -n` kiíró szkript sorszám-tartományai, vagy None, ha mintát használ."""
+    tart = []
+    for szkript in szkriptek:
+        for p in filter(None, (c.strip() for c in szkript.split(";"))):
+            m = SED_CIM.match(p)
+            if not m:
+                return None
+            tart.append((m.group(1), m.group(2)))
+    return ("sed", tart) if tart else None
+
+
+def _darab(nev: str, arg: list[str]):
+    """Mennyit ír ki a fájlból a head/tail: (név, egység, előjel, szám)."""
+    egyseg, elojel, szam, i = "lines", "", 10, 0
+    while i < len(arg):
+        a, ert = arg[i], None
+        if a in ("-n", "--lines", "-c", "--bytes"):
+            ert, i = (arg[i + 1] if i + 1 < len(arg) else ""), i + 2
+            egyseg = "bytes" if a in ("-c", "--bytes") else "lines"
+        elif re.match(r"^--(lines|bytes)=", a):
+            egyseg, ert, i = ("bytes" if a.startswith("--bytes") else "lines"), a.split("=", 1)[1], i + 1
+        elif re.match(r"^-[nc][+-]?\d+$", a):
+            egyseg, ert, i = ("bytes" if a[1] == "c" else "lines"), a[2:], i + 1
+        elif re.match(r"^-\d+$", a):
+            egyseg, ert, i = "lines", a[1:], i + 1
+        else:
+            i += 1
+            continue
+        m = re.match(r"^([+-]?)(\d+)$", ert or "")
+        if not m:
+            return None
+        elojel, szam = m.group(1), int(m.group(2))
+    return (nev, egyseg, elojel, szam)
+
+
+def reszleges(szoveg: str, mod) -> bool | None:
+    """Kevesebbet írt-e ki a parancs, mint a teljes fájl? None, ha ez a parancsból
+    magából nem dönthető el (grep környező sorokkal, mintás sed)."""
+    if mod is None:
+        return None
+    n = len(szoveg.splitlines())
+    if mod[0] == "sed":
+        lefedett = set()
+        for a, b in mod[1]:
+            eleje = n if a == "$" else int(a)
+            if b is None:
+                vege = eleje
+            elif b == "$":
+                vege = n
+            elif b.startswith("+"):
+                vege = eleje + int(b[1:])
+            else:
+                vege = int(b)
+            lefedett.update(range(max(1, eleje), min(n, vege) + 1))
+        return len(lefedett) < n
+    nev, egyseg, elojel, szam = mod
+    meret = len(szoveg.encode("utf-8")) if egyseg == "bytes" else n
+    if nev == "head":
+        return szam > 0 if elojel == "-" else szam < meret
+    return szam > 1 if elojel == "+" else szam < meret
+
+
+def _lepes_olvas(le: list[str]) -> tuple[str | None, list[str], object]:
+    """('celzott', fájlok, mód), ('forras', fájlok, None) cat/nl esetén, vagy (None, [], None)."""
     nev, arg = Path(le[0]).name, le[1:]
     if nev == "sed":
         if any(a.startswith("-i") or a.startswith("--in-place") for a in arg):
-            return None, []
+            return None, [], None
         szkriptek, maradek, csendes, i = [], [], False, 0
         while i < len(arg):
             a = arg[i]
@@ -261,7 +327,7 @@ def _lepes_olvas(le: list[str]) -> tuple[str | None, list[str]]:
                 i += 2
                 continue
             if a in ("-f", "--file"):
-                return None, []
+                return None, [], None
             if a in ("--quiet", "--silent") or (re.match(r"^-[a-zA-Z]+$", a) and "n" in a):
                 csendes = True
             elif not a.startswith("-") or a == "-":
@@ -270,11 +336,11 @@ def _lepes_olvas(le: list[str]) -> tuple[str | None, list[str]]:
         if not szkriptek and maradek:
             szkriptek, maradek = [maradek[0]], maradek[1:]
         jo = csendes and szkriptek and all(x.strip().rstrip(";").strip().endswith("p") for x in szkriptek)
-        return ("celzott", maradek) if jo else (None, [])
+        return ("celzott", maradek, _sed_tartomany(szkriptek)) if jo else (None, [], None)
     if nev in ("head", "tail"):
         if any(a in ("-f", "-F", "--follow") for a in arg):
-            return None, []
-        return "celzott", _operandusok(arg, {"-n", "-c", "--lines", "--bytes"})
+            return None, [], None
+        return "celzott", _operandusok(arg, {"-n", "-c", "--lines", "--bytes"}), _darab(nev, arg)
     if nev in ("grep", "egrep", "fgrep"):
         kornyezet, minta, fajlok, i = False, False, [], 0
         while i < len(arg):
@@ -293,12 +359,12 @@ def _lepes_olvas(le: list[str]) -> tuple[str | None, list[str]]:
                 continue
             if a.startswith("--"):
                 if a in ("--recursive", "--files-with-matches", "--files-without-match", "--count"):
-                    return None, []
+                    return None, [], None
                 i += 1
                 continue
             if a.startswith("-") and len(a) > 1:
                 if re.search(r"[rRlLc]", a[1:]):
-                    return None, []
+                    return None, [], None
                 if re.search(r"[ABC]\d*$", a):
                     kornyezet = True
                 i += 1
@@ -308,12 +374,12 @@ def _lepes_olvas(le: list[str]) -> tuple[str | None, list[str]]:
             else:
                 fajlok.append(a)
             i += 1
-        return ("celzott", fajlok) if kornyezet else (None, [])
+        return ("celzott", fajlok, None) if kornyezet else (None, [], None)
     if nev == "cat":
-        return "forras", _operandusok(arg, set())
+        return "forras", _operandusok(arg, set()), None
     if nev == "nl":
-        return "forras", _operandusok(arg, {"-b", "-n", "-w", "-s", "-v", "-i", "-d", "-h", "-f", "-l"})
-    return None, []
+        return "forras", _operandusok(arg, {"-b", "-n", "-w", "-s", "-v", "-i", "-d", "-h", "-f", "-l"}), None
+    return None, [], None
 
 
 def _feloldas(arg: str, itt: Path | None) -> Path | None:
@@ -328,8 +394,9 @@ def _feloldas(arg: str, itt: Path | None) -> Path | None:
     return p
 
 
-def parancssori_celzott_fajlok(parancs: str, cwd: str | None) -> list[Path]:
-    """Létező szövegfájlok (MAX_FAJL-ig), amelyeket egy parancs csak részben olvasott."""
+def parancssori_celzott_fajlok(parancs: str, cwd: str | None) -> list[tuple[Path, object]]:
+    """Létező szövegfájlok (MAX_FAJL-ig), amelyekből egy parancs olvasott, mindegyik
+    azzal együtt, hogy mennyit írt ki belőle (lásd reszleges)."""
     itt = Path(cwd) if cwd else None
     talalt = []
     for cso in _lepesek(parancs):
@@ -338,7 +405,7 @@ def parancssori_celzott_fajlok(parancs: str, cwd: str | None) -> list[Path]:
             continue
         forras = []
         for le in cso:
-            fajta, arg = _lepes_olvas(le)
+            fajta, arg, mod = _lepes_olvas(le)
             if fajta == "forras":
                 forras = arg
                 continue
@@ -350,8 +417,8 @@ def parancssori_celzott_fajlok(parancs: str, cwd: str | None) -> list[Path]:
                               and p.stat().st_size <= MAX_FAJL)
                     except OSError:
                         jo = False
-                    if jo and p not in talalt:
-                        talalt.append(p)
+                    if jo and p not in [f for f, _ in talalt]:
+                        talalt.append((p, mod))
             forras = []
     return talalt
 
@@ -419,23 +486,37 @@ def elo_meres(naplo_gyoker: Path = Path.home() / ".claude" / "projects", ablak: 
                 f = Path(inp.get("file_path", ""))
                 if (hid in eredmenyek and f.is_file() and f.stat().st_size <= MAX_FAJL * 5
                         and _projektben(f, gyokerek)):
-                    latott.add(hid)
-                    celzott += 1
-                    olvasott_token += token(eredmenyek[hid])
-                    teljes_token += token(f.read_text(encoding="utf-8", errors="ignore"))
+                    szoveg = f.read_text(encoding="utf-8", errors="ignore")
+                    eleje = max(1, int(inp.get("offset") or 1))
+                    limit = inp.get("limit")
+                    # ami a teljes fájlt beolvasta, az nem célzott olvasás
+                    if eleje > 1 or (limit and eleje + int(limit) - 1 < len(szoveg.splitlines())):
+                        latott.add(hid)
+                        celzott += 1
+                        olvasott_token += token(eredmenyek[hid])
+                        teljes_token += token(szoveg)
             elif (nev == "Bash" and utolso_lek is not None and i - utolso_lek <= ablak
                   and hid not in latott and hid in eredmenyek):
                 # csak a lekérdezett projekt fájljai: egy jegyzetbe, naplóba vagy más
                 # fájlba nézés közvetlenül a lekérdezés után nem a térkép spórolása
-                fajlok = [f for f in parancssori_celzott_fajlok(inp.get("command", ""), cwd)
-                          if _projektben(f, gyokerek)]
+                ki = token(eredmenyek[hid])
+                fajlok = []
+                for f, mod in parancssori_celzott_fajlok(inp.get("command", ""), cwd):
+                    if not _projektben(f, gyokerek):
+                        continue
+                    szoveg = f.read_text(encoding="utf-8", errors="ignore")
+                    resz = reszleges(szoveg, mod)
+                    # ami a teljes fájlt kiírta (head -20 egy 7 soros fájlon), az nem célzott
+                    # olvasás; ha a parancsból nem dönthető el, a kimenet legyen kisebb a fájlnál
+                    if resz or (resz is None and ki < token(szoveg)):
+                        fajlok.append((f, token(szoveg)))
                 if fajlok:
                     latott.add(hid)
-                    teljes = sum(token(f.read_text(encoding="utf-8", errors="ignore")) for f in fajlok)
+                    teljes = sum(t for _, t in fajlok)
                     celzott += len(fajlok)
                     # a teljes kimenet számít térképpel olvasottnak, a máshonnan jött sorok
                     # is, de soha nem több, mint maguk a teljes fájlok
-                    olvasott_token += min(token(eredmenyek[hid]), teljes)
+                    olvasott_token += min(ki, teljes)
                     teljes_token += teljes
     vele = lek_token + olvasott_token
     return {"lekerdezes": lekerdezes, "lekerdezes_token": lek_token, "celzott_olvasas": celzott,
