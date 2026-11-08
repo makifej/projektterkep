@@ -100,7 +100,7 @@ $PY projektterkep/kimutatas.py        # http://localhost:4478
 | Mérés | Térkép nélkül | Térképpel | Spórolás |
 |---|---:|---:|---:|
 | 6 kérdés, 3 projekt | 126 271 token | 21 268 token | 83,2% |
-| Valós használat: 20 lekérdezés, 11 célzott olvasás | 161 721 token | 24 569 token | 84,8% |
+| Valós használat: 17 lekérdezés, 20 célzott olvasás | 270 032 token | 32 664 token | 87,9% |
 
 A kérdések szórása nagy: 95% fölött volt, ahol a kulcsszó sok nagy fájlban
 szerepelt, és -51%, ahol a keresés két kis fájlt talált, a térkép pedig
