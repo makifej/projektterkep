@@ -83,9 +83,11 @@ Minden mérés a `graphify-out/meresek.jsonl` naplóba kerül.
 $PY projektterkep/projektterkep.py --elo-meres
 ```
 
-Megszámolja a térkép-lekérdezéseket (`graphify query/explain/path`) és az utánuk
-következő célzott (offset/limit) fájlolvasásokat, és összeveti azzal, amennyi a
-teljes fájlok beolvasása lett volna.
+Megszámolja a választ adó térkép-lekérdezéseket (`graphify query/explain/path`)
+és az utánuk következő célzott fájlolvasásokat a lekérdezett projektben (Read
+offset/limit-tel, vagy a parancssorban `sed -n`, `head`, `tail` és `grep`
+környező sorokkal), és összeveti azzal, amennyi a teljes fájlok beolvasása lett
+volna.
 
 **Helyi kimutatás** a mérésekről, élő kipróbálással és a projektek térképével:
 
