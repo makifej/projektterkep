@@ -3,176 +3,293 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Projekttérkép mérés</title>
+<title>Projekttérkép tokenmérés</title>
+<meta name="description" content="Helyi tokenmérés a Projekttérképhez: mennyivel kevesebbet olvas a Claude Code a térképpel.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23262D36'/%3E%3Cpath d='M9 10L23 9M9 10L16 23M23 9L16 23' stroke='%238D97A3' stroke-width='1.5'/%3E%3Ccircle cx='9' cy='10' r='3' fill='%23C9F26B'/%3E%3Ccircle cx='23' cy='9' r='3' fill='%23EEF2F5'/%3E%3Ccircle cx='16' cy='23' r='3' fill='%23C9F26B'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--hat:#181818;--felulet:#1F1F1F;--vonal:#313131;--szov:#F2F2F0;--halk:#A3A3A0;--kiem:#8BE28B;--szurke:#5C5C5A;--rossz:#E5866B}
+:root{
+  color-scheme:dark;
+  --bg:#1A1F26;--panel:#1F252D;--tile:#252C35;--tile2:#2B333D;--line:#343D48;--line2:#2B323B;
+  --ink:#EEF2F5;--ink2:#C3CBD3;--muted:#8D97A3;--faint:#5F6975;
+  --lime:#C9F26B;--lime2:rgba(201,242,107,.14);--red:#EF8A78;--red2:rgba(239,138,120,.14);--gray:#7A8490;
+  --mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --ease:cubic-bezier(.32,.72,0,1);
+}
 *{box-sizing:border-box;margin:0}
-html{background:var(--hat)}
-body{background:var(--hat);color:var(--szov);font-family:Geist,system-ui,sans-serif;font-size:16px;line-height:24px;font-variant-numeric:tabular-nums}
-main{max-width:1120px;margin:0 auto;padding:32px 24px 64px}
-header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:64px}
-h1{font-size:16px;line-height:24px;font-weight:600}
-.elo{font-size:14px;line-height:20px;color:var(--halk);display:flex;align-items:center;gap:8px}
-.pont{width:8px;height:8px;border-radius:9999px;background:var(--kiem)}
-.cimke{font-size:18px;line-height:28px;color:var(--halk)}
-.fo{display:flex;flex-wrap:wrap;gap:24px 64px;margin:16px 0 32px}
-.nagy{font-size:96px;line-height:1;font-weight:600;letter-spacing:-.02em;color:var(--kiem)}
-.egyseg{font-size:18px;line-height:28px;margin-top:8px}
-.lead{font-size:18px;line-height:28px;max-width:720px;text-wrap:pretty}
-.halk{color:var(--halk)}
-section{margin-top:80px}
-h2{font-size:24px;line-height:32px;font-weight:600;margin-bottom:8px;text-wrap:balance}
-.al{font-size:14px;line-height:20px;color:var(--halk);margin-bottom:24px;max-width:720px;text-wrap:pretty}
-.ut{display:grid;grid-template-columns:140px 1fr;gap:12px 16px;align-items:center}
-.ut .nev{font-size:14px;line-height:20px;color:var(--halk)}
-.sav{height:40px;border-radius:8px;background:var(--felulet);position:relative;overflow:hidden}
-.sav i{position:absolute;inset:0 auto 0 0;border-radius:8px;transition:width .8s cubic-bezier(.32,.72,0,1)}
-.sav b{position:absolute;left:12px;top:8px;font-weight:600;font-size:16px;line-height:24px;color:var(--hat);white-space:nowrap}
-.sav b.kint{color:var(--szov)}
-.kerdes{padding:24px 0;border-top:1px solid var(--vonal)}
-.kerdes:first-child{border-top:0;padding-top:0}
-.kfej{display:flex;justify-content:space-between;gap:16px;align-items:baseline;margin-bottom:12px}
-.kfej .k{font-weight:500;text-wrap:pretty}
-.kfej .p{font-weight:600;white-space:nowrap}
-.kicsi{font-size:14px;line-height:20px;color:var(--halk);margin-top:8px;overflow-wrap:anywhere}
-.ketsav{display:grid;gap:8px}
-.mini{height:24px;border-radius:6px;background:var(--felulet);position:relative;overflow:hidden}
-.mini i{position:absolute;inset:0 auto 0 0;border-radius:6px}
-.mini span{position:absolute;left:8px;top:2px;font-size:12px;line-height:20px;color:var(--szov);white-space:nowrap}
-form{display:grid;grid-template-columns:200px 1fr auto;gap:12px}
-select,input,button{font:inherit;color:var(--szov);background:var(--felulet);border:1px solid var(--vonal);border-radius:8px;padding:12px 16px;min-width:0}
-button{background:var(--kiem);color:var(--hat);border:0;font-weight:600;cursor:pointer}
-button:disabled{opacity:.5;cursor:default}
-:focus-visible{outline:2px solid var(--kiem);outline-offset:2px}
-#eredm{margin-top:24px}
-.terkepek{display:flex;flex-wrap:wrap;gap:8px}
-.terkepek a{font-size:14px;line-height:20px;color:var(--szov);text-decoration:none;background:var(--felulet);border:1px solid var(--vonal);border-radius:9999px;padding:8px 16px}
-.terkepek a:hover{border-color:var(--kiem)}
-iframe{width:100%;height:560px;border:1px solid var(--vonal);border-radius:12px;background:#0d0d0d;margin-top:24px}
-.lab{font-size:14px;line-height:20px;color:var(--halk);max-width:720px;text-wrap:pretty}
-.lab p+p{margin-top:12px}
-@media (max-width:700px){form{grid-template-columns:1fr}.ut{grid-template-columns:1fr;gap:4px}.ut .nev{margin-top:8px}}
-@media (max-width:480px){main{padding:24px 16px 48px}.nagy{font-size:60px}header{margin-bottom:48px}section{margin-top:64px}iframe{height:420px}}
+html{background:var(--bg);scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:Geist,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:24px;-webkit-font-smoothing:antialiased;min-height:100dvh}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:var(--stars,none);background-size:320px 320px;opacity:.9;z-index:0}
+.skip{position:absolute;left:-9999px}.skip:focus{left:16px;top:16px;background:var(--lime);color:var(--bg);padding:8px 12px;border-radius:8px;z-index:9}
+main{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:32px 24px 96px}
+:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:24px;margin-bottom:48px;scroll-margin-top:24px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px 24px;flex-wrap:wrap}
+.id{display:flex;align-items:center;gap:24px;min-width:0}
+.logo{display:flex;align-items:center;gap:12px;padding:8px 12px 8px 8px;border:1px solid var(--line);border-radius:16px;background:var(--tile)}
+.logo svg{width:32px;height:32px;display:block}
+.logo b{display:block;font-size:14px;line-height:16px;font-weight:700;letter-spacing:.02em}
+.logo span{display:block;font-size:12px;line-height:16px;font-weight:600;color:var(--lime);letter-spacing:.12em}
+.title h1{font-size:24px;line-height:32px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.title p{font-size:14px;line-height:20px;color:var(--muted);text-wrap:pretty}
+.ghost{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:14px;line-height:20px;font-weight:600;color:var(--lime);background:transparent;border:1px solid var(--lime);border-radius:9999px;padding:8px 16px;cursor:pointer;text-decoration:none;transition:background-color .7s var(--ease),transform .7s var(--ease)}
+.ghost:hover{background:var(--lime2)}.ghost:active{transform:scale(.98)}
+.ghost svg{width:16px;height:16px}
+
+.status{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px;font-size:14px;line-height:20px;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--lime);color:var(--lime);border-radius:9999px;padding:0 12px;font-size:12px;line-height:24px;font-weight:600}
+.pill i{width:8px;height:8px;border-radius:9999px;background:currentColor}
+.pill.busy{border-color:#F2D36B;color:#F2D36B}
+.pill.busy i{animation:blink 1.4s var(--ease) infinite}
+@keyframes blink{50%{opacity:.3}}
+
+.tabs{display:flex;align-items:flex-end;gap:24px;margin:24px 0;border-bottom:1px solid var(--line2);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{display:flex;gap:8px;align-items:baseline;white-space:nowrap;color:var(--ink2);text-decoration:none;font-size:14px;line-height:20px;font-weight:500;padding:8px 0 12px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .7s var(--ease),border-color .7s var(--ease)}
+.tabs a span{font-family:var(--mono);font-size:12px;line-height:16px;color:var(--faint)}
+.tabs a:hover{color:var(--ink)}
+.tabs a[aria-current=true]{color:var(--ink);font-weight:600;border-bottom-color:var(--lime)}
+.tabs a[aria-current=true] span{color:var(--lime)}
+
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.kpi{background:var(--tile);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;min-width:0}
+.kpi.hi{border-color:var(--lime);box-shadow:0 0 0 1px rgba(201,242,107,.25),0 8px 32px rgba(201,242,107,.08)}
+.kpi.hi .kv{color:var(--lime)}
+.kl{font-family:var(--mono);font-size:12px;line-height:16px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kv{font-size:30px;line-height:36px;font-weight:700;letter-spacing:-.02em;margin-top:16px;white-space:nowrap}
+.kv small{font-size:16px;line-height:24px;font-weight:600;margin-left:4px;letter-spacing:0}
+.kr{font-family:var(--mono);font-size:12px;line-height:16px;color:var(--faint);margin-top:4px;min-height:16px;overflow-wrap:anywhere}
+
+.card{background:var(--tile);border:1px solid var(--line);border-radius:16px;padding:16px;min-width:0;margin-bottom:16px}
+.ch{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.ch h2{font-size:14px;line-height:20px;font-weight:700}
+.ch h2 em{font-style:normal;font-family:var(--mono);font-size:12px;line-height:16px;font-weight:400;color:var(--muted);margin-left:8px}
+.cmp{display:grid;grid-template-columns:140px minmax(0,1fr);gap:16px;align-items:center}
+.cmp+.cmp{margin-top:12px}
+.cmp span{font-size:14px;line-height:20px;color:var(--ink2)}
+.track{height:40px;background:var(--tile2);border-radius:12px;position:relative;overflow:hidden}
+.track i{position:absolute;inset:0 auto 0 0;border-radius:12px;transition:width .8s var(--ease)}
+.track b{position:absolute;top:8px;font-family:var(--mono);font-size:14px;line-height:24px;font-weight:600;white-space:nowrap}
+
+.formula{display:flex;flex-wrap:wrap;gap:4px 24px;font-family:var(--mono);font-size:12px;line-height:16px;color:var(--faint);padding:8px 0 0}
+.formula b{color:var(--ink2);font-weight:600;margin-right:8px}
+
+.sh{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.sh h2{font-size:24px;line-height:32px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.sh p{font-size:14px;line-height:20px;color:var(--muted);text-wrap:pretty;max-width:640px;margin-top:4px}
+.sh .meta{font-family:var(--mono);font-size:12px;line-height:16px;color:var(--ink2);max-width:420px}
+
+form{display:grid;grid-template-columns:220px 1fr auto;gap:12px;margin-bottom:16px}
+select,input{font:inherit;font-size:14px;line-height:20px;color:var(--ink);background:var(--tile);border:1px solid var(--line);border-radius:12px;padding:8px 12px;min-width:0}
+.btn{font:inherit;font-size:16px;line-height:24px;font-weight:600;color:var(--bg);background:var(--lime);border:0;border-radius:12px;padding:8px 16px;cursor:pointer;transition:transform .7s var(--ease),opacity .7s var(--ease)}
+.btn:hover{transform:translateY(-1px)}.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.5;cursor:default;transform:none}
+.msg{font-size:14px;line-height:20px;color:var(--muted);margin-bottom:16px}
+.msg.err{color:var(--red)}
+
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;line-height:20px}
+th{font-family:var(--mono);font-size:12px;line-height:16px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 12px;white-space:nowrap}
+td{padding:12px;border-top:1px solid var(--line2);vertical-align:middle}
+td.r,th.r{text-align:right}
+td.r{font-family:var(--mono);font-size:12px;line-height:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.name{font-weight:600;max-width:420px;overflow-wrap:break-word}
+td.name small{display:block;font-family:var(--mono);font-size:12px;line-height:16px;font-weight:400;color:var(--faint);margin-top:4px}
+tr.uj td{background:var(--lime2)}
+.meter{display:flex;align-items:center;gap:8px;min-width:160px}
+.meter .m{flex:1;height:8px;background:var(--tile2);border-radius:4px;position:relative;overflow:hidden}
+.meter .m i{position:absolute;top:0;bottom:0;border-radius:4px}
+.meter .m .zero{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--line);left:50%}
+.meter b{font-family:var(--mono);font-size:12px;line-height:16px;font-weight:600;width:72px;text-align:right}
+.empty{color:var(--muted);font-size:14px;line-height:20px;padding:24px 0;text-wrap:pretty}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{font:inherit;font-size:14px;line-height:20px;color:var(--ink);background:var(--tile);border:1px solid var(--line);border-radius:9999px;padding:4px 12px;cursor:pointer;transition:border-color .7s var(--ease),color .7s var(--ease)}
+.chips button span{font-family:var(--mono);font-size:12px;color:var(--faint);margin-left:8px}
+.chips button:hover,.chips button[aria-pressed=true]{border-color:var(--lime);color:var(--lime)}
+iframe{width:100%;height:560px;border:1px solid var(--line);border-radius:16px;background:#000;margin-top:16px}
+
+.notes{font-size:14px;line-height:20px;color:var(--muted);max-width:720px;padding:0 8px}
+.notes h2{font-size:18px;line-height:28px;font-weight:700;color:var(--ink);margin-bottom:8px}
+.notes p+p{margin-top:12px}
+.sk{background:var(--tile2);border-radius:8px;height:20px;animation:pulse 1.6s var(--ease) infinite}
+@keyframes pulse{50%{opacity:.5}}
+.reveal{opacity:0;transform:translateY(32px);filter:blur(8px);transition:opacity .8s var(--ease),transform .8s var(--ease),filter .8s var(--ease)}
+.reveal.in{opacity:1;transform:none;filter:none}
+
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){
+  main{padding:16px 12px 64px}.panel{padding:16px;border-radius:20px;margin-bottom:32px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.kpi{padding:12px}.kv{font-size:24px;line-height:32px}.kv small{font-size:14px;line-height:20px}
+  .id{flex-direction:column;align-items:flex-start;gap:12px}.title h1{font-size:20px;line-height:28px}.logo{padding:4px 8px 4px 4px}
+  .cmp{grid-template-columns:1fr;gap:4px}form{grid-template-columns:1fr}iframe{height:420px}.sh h2{font-size:20px;line-height:28px}
+  th,td{padding:8px 6px}.meter{min-width:0}.meter .m{display:none}.ghost{padding:4px 12px}
+  .tsz{display:none}.kpi:last-child{grid-column:span 2}
+}
+@media (max-width:330px){.kpis{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}.reveal{opacity:1;transform:none;filter:none}}
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <h1>Projekttérkép, saját mérés</h1>
-    <div class="elo"><span class="pont"></span><span id="allapot">Betöltés</span></div>
-  </header>
+<a class="skip" href="#tartalom">Ugrás a tartalomra</a>
+<main id="tartalom">
 
-  <div class="cimke">Valós használat a Claude Code naplóiból</div>
-  <div class="fo">
-    <div><div class="nagy" id="pct">0%</div><div class="egyseg">kevesebb token</div></div>
-    <div><div class="nagy" id="spor">0</div><div class="egyseg">megspórolt token</div></div>
+<section class="panel" id="attekintes" aria-labelledby="hCim">
+  <div class="top">
+    <div class="id">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#1F252D"/><path d="M9 10L23 9M9 10L16 23M23 9L16 23" stroke="#8D97A3" stroke-width="1.5"/><circle cx="9" cy="10" r="3" fill="#C9F26B"/><circle cx="23" cy="9" r="3" fill="#EEF2F5"/><circle cx="16" cy="23" r="3" fill="#C9F26B"/></svg>
+        <div><b>PROJEKT</b><span>TÉRKÉP</span></div>
+      </div>
+      <div class="title">
+        <h1 id="hCim">Tokenmérés</h1>
+        <p>Mennyivel kevesebbet olvas a Claude Code a térképpel, a saját munkamenet-naplóidból</p>
+      </div>
+    </div>
+    <a class="ghost" href="#probald"><svg viewBox="0 0 256 256" aria-hidden="true" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>Mérj egy kérdéssel</a>
   </div>
-  <p class="lead" id="lead">Az élő mérés a háttérben fut, kb. egy perc.</p>
 
-  <section>
-    <h2>Ugyanaz a tudás, két úton</h2>
-    <p class="al">Amit a térkép-lekérdezések után célzottan olvastam, összevetve azzal, amennyi a teljes fájlok beolvasása lett volna.</p>
-    <div class="ut" id="elosav"></div>
+  <div class="status" aria-live="polite">
+    <span class="pill busy" id="pill"><i></i><span id="pillT">Betöltés</span></span>
+    <span id="allapot">A Claude Code naplóit olvasom ezen a gépen. Semmi nem megy ki innen.</span>
+  </div>
+
+  <nav class="tabs" aria-label="Szakaszok">
+    <a href="#attekintes" aria-current="true"><span>1</span>Áttekintés</a>
+    <a href="#probald"><span>2</span>Próbáld ki</a>
+    <a href="#kerdesek"><span>3</span>Kérdésenként</a>
+    <a href="#terkepek"><span>4</span>Térképek</a>
+  </nav>
+
+  <div class="kpis" aria-label="Fő számok">
+    <div class="kpi"><div class="kl">Térkép nélkül</div><div class="kv num" id="v1"><span class="sk" style="display:block;width:120px;height:36px"></span></div><div class="kr" id="r1"></div></div>
+    <div class="kpi"><div class="kl">Térképpel olvasott</div><div class="kv num" id="v2"></div><div class="kr" id="r2"></div></div>
+    <div class="kpi hi"><div class="kl">Megspórolt token</div><div class="kv num" id="v3"></div><div class="kr" id="r3"></div></div>
+    <div class="kpi"><div class="kl">Térkép-lekérdezés</div><div class="kv num" id="v4"></div><div class="kr" id="r4"></div></div>
+    <div class="kpi hi"><div class="kl">Kevesebb token</div><div class="kv num" id="v5"></div><div class="kr" id="r5"></div></div>
+  </div>
+
+  <section class="card" aria-labelledby="hKet">
+    <div class="ch"><h2 id="hKet">Ugyanaz a tudás, két úton<em>teljes fájl vagy térkép</em></h2></div>
+    <div id="ket"><div class="sk" style="height:92px"></div></div>
   </section>
 
-  <section>
-    <h2>Próbáld ki egy kérdéssel</h2>
-    <p class="al">Válassz projektet, és írd be, mit keresnél a kódban. A mérés ingyenes, nincs LLM-hívás, és bekerül a lenti listába.</p>
-    <form id="urlap">
-      <select id="projekt" aria-label="Projekt"></select>
-      <input id="kerdes" placeholder="pl. melyik szkript posztol Facebookra" aria-label="Kérdés" maxlength="300">
-      <button id="gomb">Mérés</button>
-    </form>
-    <div id="eredm"></div>
-  </section>
+  <div class="formula">
+    <span><b>Térkép nélkül</b>minden célzott olvasás teljes fájlja</span>
+    <span><b>Térképpel</b>térkép-válaszok + beolvasott részletek</span>
+    <span><b>Megspórolt</b>térkép nélkül - térképpel</span>
+    <span><b>Kimarad</b>más projekt fájlja, teljes fájl beolvasása</span>
+  </div>
+</section>
 
-  <section>
-    <h2>Kérdésenként</h2>
-    <p class="al" id="osszal"></p>
-    <div id="lista"></div>
-  </section>
+<section class="panel reveal" id="probald" aria-labelledby="hProb">
+  <div class="sh"><div><h2 id="hProb">Próbáld ki egy kérdéssel</h2><p>Válassz projektet, és írd be, mit keresnél a kódban. A mérés ingyenes, nem hív nyelvi modellt, és bekerül a lenti listába.</p></div></div>
+  <form id="urlap">
+    <select id="projekt" aria-label="Projekt"></select>
+    <input id="kerdes" placeholder="pl. hol küldjük ki az üdvözlő levelet" aria-label="Kérdés" maxlength="300" required>
+    <button class="btn" id="gomb">Mérés</button>
+  </form>
+  <div id="eredm"></div>
+</section>
 
-  <section>
-    <h2>Így néz ki egy térkép</h2>
-    <p class="al">A gráf, amiből az agent dolgozik: függvények, fájlok, mappák és a köztük lévő kapcsolatok. Kattints egy projektre.</p>
-    <div class="terkepek" id="terkepek"></div>
-    <iframe id="keret" title="Projekt térképe" hidden></iframe>
-  </section>
+<section class="panel reveal" id="kerdesek" aria-labelledby="hKerd">
+  <div class="sh"><div><h2 id="hKerd">Kérdésenként</h2><p>Minden mérés ugyanarra a kérdésre két utat vet össze: kulcsszavas keresés és a legjobb találatok teljes beolvasása, vagy térkép-lekérdezés és a megtalált helyek körüli részletek.</p></div><span class="meta" id="osszal"></span></div>
+  <div class="tw" id="lista"><div class="sk"></div></div>
+</section>
 
-  <section class="lab">
-    <h2 style="color:var(--szov)">Hogyan mérünk</h2>
-    <p>A token becslés: karakter osztva 4-gyel, mindkét oldalon ugyanígy. Kérdésenként térkép nélkül kulcsszavas keresés fut, és az 5 legjobb találat teljes fájlja számít. Térképpel a lekérdezés kimenete és az első 3 megtalált hely körüli 40-40 sor.</p>
-    <p>A valós használat a választ adó térkép-lekérdezéseket számolja, és az utánuk következő 12 lépésben a lekérdezett projekt fájljainak részleges olvasását: Read offset/limit-tel, vagy a parancssorban sed -n, head, tail és grep környező sorokkal. Ami így is a teljes fájlt hozta (head -20 egy 7 soros fájlon), az nem célzott olvasás. A viszonyítás feltételezés: hogy térkép nélkül a teljes fájlt olvastam volna be. Ahol a kulcsszavas keresés semmit nem talált, az a mérés nem számít bele az összesítésbe. A negatív eredmények is látszanak.</p>
-  </section>
+<section class="panel reveal" id="terkepek" aria-labelledby="hTerk">
+  <div class="sh"><div><h2 id="hTerk">Így néz ki egy térkép</h2><p>A gráf, amiből a Claude dolgozik: függvények, fájlok, mappák és a köztük lévő kapcsolatok. Kattints egy projektre.</p></div></div>
+  <div class="chips" id="chips"></div>
+  <iframe id="keret" title="Projekt térképe" hidden></iframe>
+</section>
+
+<section class="notes reveal" aria-labelledby="hHogy">
+  <h2 id="hHogy">Hogyan mérünk</h2>
+  <p>A tokent karakter osztva 4-gyel becsüljük, mindkét oldalon ugyanígy. Kérdésenként térkép nélkül kulcsszavas keresés fut, és az 5 legjobb találat teljes fájlja számít. Térképpel a lekérdezés kimenete és az első 3 megtalált hely körüli 40-40 sor.</p>
+  <p>A valós használat a választ adó térkép-lekérdezéseket számolja, és az utánuk következő 12 lépésben a lekérdezett projekt fájljainak részleges olvasását: Read offset/limit-tel, vagy a parancssorban sed -n, head, tail és grep környező sorokkal. Ami így is a teljes fájlt hozta (head -20 egy 7 soros fájlon), az nem célzott olvasás. A viszonyítás feltételezés: hogy térkép nélkül a teljes fájlt olvasta volna be. Ahol a kulcsszavas keresés semmit nem talált, az a mérés nem számít bele az összesítésbe. A negatív eredmények is látszanak. Minden a gépeden fut, semmi nem megy ki innen.</p>
+</section>
 </main>
+
 <script>
 const $=id=>document.getElementById(id);
 const sz=n=>n==null?'nincs adat':Math.round(n).toLocaleString('hu-HU');
-const pc=n=>n==null?'nincs adat':n.toLocaleString('hu-HU',{maximumFractionDigits:1})+'%';
-let projektekBetoltve=false;
+const rov=n=>{if(n==null)return 'nincs adat';const a=Math.abs(n);return a>=1e6?(n/1e6).toLocaleString('hu-HU',{maximumFractionDigits:1})+' M':a>=1e5?Math.round(n/1e3)+' e':a>=1e3?(n/1e3).toLocaleString('hu-HU',{maximumFractionDigits:1})+' e':String(Math.round(n))};
+const pc=n=>n==null?'nincs adat':n.toLocaleString('hu-HU',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let projektekBetoltve=false,ujKerdes=null;
 
-function sav(nev,ertek,max,szin,szoveg){
-  const w=max?Math.max(2,100*ertek/max):0;
-  const kint=w<35;
-  const szovSzin=(kint||szin==='var(--szurke)')?'var(--szov)':'var(--hat)';
-  return `<div class="nev">${nev}</div><div class="sav"><i style="width:${w}%;background:${szin}"></i><b style="color:${szovSzin};${kint?`left:calc(${w}% + 12px)`:''}">${szoveg}</b></div>`;
+(function(){const c=document.createElement('canvas');c.width=c.height=320;const x=c.getContext('2d');let s=7;const r=()=>(s=(s*16807)%2147483647)/2147483647;
+  for(let i=0;i<70;i++){x.fillStyle=`rgba(${r()>.85?'201,242,107':'238,242,245'},${(.05+r()*.2).toFixed(2)})`;x.beginPath();x.arc(r()*320,r()*320,r()*.9+.3,0,7);x.fill()}
+  document.documentElement.style.setProperty('--stars',`url(${c.toDataURL()})`)})();
+
+function meter(p){
+  if(p==null)return '<div class="meter"><div class="m"><span class="zero"></span></div><b style="color:var(--muted)">nincs adat</b></div>';
+  const w=Math.min(50,Math.abs(p)/2),neg=p<0;
+  return `<div class="meter"><div class="m"><span class="zero"></span><i style="${neg?'right:50%':'left:50%'};width:${w}%;background:${neg?'var(--red)':'var(--lime)'}"></i></div><b style="color:${neg?'var(--red)':'var(--ink)'}">${neg?'':'+'}${pc(p)}</b></div>`;
 }
-function kerdesBlokk(m){
-  const n=m.terkep_nelkul.token, v=m.terkeppel.token, max=Math.max(n,v,1);
-  const p=m.sporolt_szazalek;
-  const szin=p==null?'var(--halk)':(p<0?'var(--rossz)':'var(--kiem)');
-  const pszov=p==null?'nem mérhető':(p<0?`${pc(-p)} több`:`${pc(p)} kevesebb`);
-  return `<div class="kerdes"><div class="kfej"><span class="k">${esc(m.kerdes)}</span><span class="p" style="color:${szin}">${pszov}</span></div>
-  ${n?`<div class="ketsav">
-   <div class="mini"><i style="width:${100*n/max}%;background:var(--szurke)"></i><span>Térkép nélkül: ${sz(n)} token</span></div>
-   <div class="mini"><i style="width:${100*v/max}%;background:${p<0?'var(--rossz)':'var(--kiem)'};opacity:.45"></i><span>Térképpel: ${sz(v)} token</span></div>
-  </div>`:''}
-  <div class="kicsi">${esc(m.projekt)} · ${n?`${m.terkep_nelkul.talalt_fajl} fájlban talált kulcsszót`:'a kulcsszavas keresés semmit nem talált'}${m.terkeppel.reszletek.length?' · térkép: '+m.terkeppel.reszletek.map(esc).join(', '):''}</div></div>`;
+function sor(m,uj){
+  const n=m.terkep_nelkul.token,v=m.terkeppel.token;
+  const hol=n?`${m.terkep_nelkul.talalt_fajl} fájlban talált kulcsszót`:'a kulcsszavas keresés semmit nem talált';
+  return `<tr${uj?' class="uj"':''}><td class="name">${esc(m.kerdes)}<small>${esc(m.projekt)} · ${hol}</small></td><td class="r tsz">${n?rov(n):'nincs találat'}</td><td class="r tsz">${rov(v)}</td><td>${meter(n?m.sporolt_szazalek:null)}</td></tr>`;
 }
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+const fej='<table><thead><tr><th>Kérdés</th><th class="r tsz">Térkép nélkül</th><th class="r tsz">Térképpel</th><th>Kevesebb</th></tr></thead><tbody>';
+
+function eloRajz(e){
+  const unit=v=>`${rov(v)}<small>token</small>`;
+  $('v1').innerHTML=unit(e.teljes_fajl_token);$('r1').textContent=sz(e.teljes_fajl_token)+' token';
+  $('v2').innerHTML=unit(e.terkeppel_token);$('r2').textContent=`${sz(e.lekerdezes_token)} térkép + ${sz(e.celzott_token)} részlet`;
+  $('v3').innerHTML=unit(e.sporolt_token);$('r3').textContent=e.lekerdezes&&e.teljes_fajl_token?`${sz(e.sporolt_token/e.lekerdezes)} lekérdezésenként`:sz(e.sporolt_token)+' token';
+  $('v4').textContent=sz(e.lekerdezes);$('r4').textContent=`${sz(e.celzott_olvasas)} célzott olvasás utána`;
+  $('v5').textContent=pc(e.sporolt_szazalek);$('r5').textContent=`${rov(e.terkeppel_token)} / ${rov(e.teljes_fajl_token)} olvasva`;
+  const max=Math.max(e.teljes_fajl_token,e.terkeppel_token,1);
+  const bar=(lab,v,col,ink)=>{const w=Math.max(1,100*v/max),kint=w<30;return `<div class="cmp"><span>${lab}</span><div class="track"><i style="width:${w}%;background:${col}"></i><b style="left:${kint?`calc(${w}% + 12px)`:'12px'};color:${kint?'var(--ink)':ink}">${sz(v)} token</b></div></div>`};
+  $('ket').innerHTML=e.teljes_fajl_token?bar('Térkép nélkül',e.teljes_fajl_token,'var(--gray)','var(--ink)')+bar('Térképpel',e.terkeppel_token,'var(--lime)','var(--bg)')
+    :'<p class="empty">Még nincs olyan térkép-lekérdezés, amit célzott olvasás követett. Használd a térképet egy Claude Code munkamenetben, és ez kitöltődik.</p>';
+}
 
 async function frissit(){
   try{
     const d=await (await fetch('/api/adat')).json();
-    const e=d.elo;
-    if(e){
-      $('pct').textContent=pc(e.sporolt_szazalek);
-      $('spor').textContent=sz(e.sporolt_token);
-      $('lead').textContent=`${e.lekerdezes} térkép-lekérdezés és ${e.celzott_olvasas} célzott fájlolvasás alapján. Térképpel ${sz(e.terkeppel_token)} token ment a Claude-nak, a teljes fájlok ${sz(e.teljes_fajl_token)} tokenje helyett.`;
-      const max=e.teljes_fajl_token;
-      $('elosav').innerHTML=sav('Térkép nélkül',max,max,'var(--szurke)',sz(max)+' token')+sav('Térképpel',e.terkeppel_token,max,'var(--kiem)',sz(e.terkeppel_token)+' token');
-      $('allapot').textContent='Élő, frissítve '+d.elo_ido;
-    } else $('allapot').textContent='Élő mérés fut';
+    if(d.elo){$('pill').classList.remove('busy');$('pillT').textContent='Élő';$('allapot').textContent=`Frissítve ${d.elo_ido}, a Claude Code naplóiból ezen a gépen. Semmi nem megy ki innen.`;eloRajz(d.elo)}
+    else{$('pillT').textContent='Mérés fut';$('allapot').textContent='A Claude Code naplóit olvasom ezen a gépen, ez az első betöltéskor kb. fél perc.'}
     const o=d.osszesites;
-    $('osszal').textContent=o.ervenyes?`${o.ervenyes} értékelhető mérés összesen: ${sz(o.terkep_nelkul_token)} token helyett ${sz(o.terkeppel_token)}, vagyis ${pc(o.sporolt_szazalek)} kevesebb. ${o.meres-o.ervenyes?`${o.meres-o.ervenyes} mérésnél a kulcsszavas keresés semmit nem talált, azok nem számítanak bele.`:''}`:'Még nincs mérés.';
-    $('lista').innerHTML=d.meresek.map(kerdesBlokk).join('');
-    if(!projektekBetoltve){
-      projektekBetoltve=true;
+    $('osszal').textContent=o.ervenyes?`${o.ervenyes} értékelhető mérés, ${pc(o.sporolt_szazalek)} kevesebb token összesen`:'';
+    $('lista').innerHTML=d.meresek.length?fej+d.meresek.map((m,i)=>sor(m,ujKerdes&&i===0&&m.kerdes===ujKerdes)).join('')+'</tbody></table>'
+      :'<p class="empty">Még nincs mérés. Fent válassz projektet, és kérdezz valamit, amit a Claude-tól is kérdeznél arról a kódról.</p>';
+    if(!projektekBetoltve){projektekBetoltve=true;
       const lista=d.projektek.slice().sort((a,b)=>(b.csomopont||0)-(a.csomopont||0));
       $('projekt').innerHTML=lista.map(p=>`<option>${esc(p.nev)}</option>`).join('');
-      $('terkepek').innerHTML=lista.filter(p=>p.html).slice(0,16).map(p=>`<a href="#" data-n="${esc(p.nev)}">${esc(p.nev)}${p.csomopont?` · ${sz(p.csomopont)} csomópont`:''}</a>`).join('');
+      $('chips').innerHTML=lista.filter(p=>p.html).slice(0,24).map(p=>`<button data-n="${esc(p.nev)}" aria-pressed="false">${esc(p.nev)}${p.csomopont?`<span>${sz(p.csomopont)}</span>`:''}</button>`).join('')||'<p class="empty">Még nincs térkép gráfnézettel.</p>';
     }
-  }catch(err){$('allapot').textContent='A szerver nem válaszol'}
+  }catch(err){$('pill').classList.add('busy');$('pillT').textContent='Nem elérhető';$('allapot').textContent='A helyi szerver nem válaszol. Fut a kimutatas.py?'}
 }
-$('terkepek').addEventListener('click',ev=>{
-  const a=ev.target.closest('a'); if(!a)return; ev.preventDefault();
-  const k=$('keret'); k.hidden=false; k.src='/terkep/'+encodeURIComponent(a.dataset.n);
-});
+$('chips').addEventListener('click',ev=>{const b=ev.target.closest('button');if(!b)return;
+  document.querySelectorAll('#chips button').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
+  const k=$('keret');k.hidden=false;k.src='/terkep/'+encodeURIComponent(b.dataset.n)});
 $('urlap').addEventListener('submit',async ev=>{
-  ev.preventDefault();
-  const kerdes=$('kerdes').value.trim(); if(!kerdes)return;
-  $('gomb').disabled=true; $('eredm').innerHTML='<p class="al">Mérés fut…</p>';
-  try{
-    const r=await fetch('/api/meres',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projekt:$('projekt').value,kerdes})});
+  ev.preventDefault();const kerdes=$('kerdes').value.trim();
+  if(!kerdes){$('eredm').innerHTML='<p class="msg err">Előbb írj be egy kérdést.</p>';return}
+  $('gomb').disabled=true;$('gomb').textContent='Mérés fut';$('eredm').innerHTML='';
+  try{const r=await fetch('/api/meres',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({projekt:$('projekt').value,kerdes})});
     const d=await r.json();
-    $('eredm').innerHTML=d.hiba?`<p class="al">${esc(d.hiba)}</p>`:kerdesBlokk(d);
-    frissit();
-  }catch(e){$('eredm').innerHTML='<p class="al">A mérés nem sikerült.</p>'}
-  $('gomb').disabled=false;
+    if(d.hiba)$('eredm').innerHTML=`<p class="msg err">${esc(d.hiba)}</p>`;
+    else{ujKerdes=d.kerdes;$('eredm').innerHTML=`<div class="tw">${fej}${sor(d,true)}</tbody></table></div>`;$('kerdes').value='';await frissit()}
+  }catch(e){$('eredm').innerHTML='<p class="msg err">A mérés nem futott le. Nézd meg, fut-e még a kimutatas.py.</p>'}
+  $('gomb').disabled=false;$('gomb').textContent='Mérés';
 });
-frissit(); setInterval(frissit,15000);
+
+const tabs=[...document.querySelectorAll('.tabs a')];
+const tabObs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)tabs.forEach(a=>a.setAttribute('aria-current',String(a.getAttribute('href')==='#'+e.target.id)))}),{rootMargin:'-40% 0px -55% 0px'});
+document.querySelectorAll('main > .panel').forEach(p=>tabObs.observe(p));
+const revObs=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');revObs.unobserve(e.target)}}),{threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>revObs.observe(el));
+/* tartalék: ami már látszik, az akkor is megjelenik, ha a figyelő nem fut le (háttérben lévő lapon) */
+const revTimer=setInterval(()=>{const m=[...document.querySelectorAll('.reveal:not(.in)')];if(!m.length)return clearInterval(revTimer);m.forEach(el=>{const r=el.getBoundingClientRect();if(r.top<innerHeight&&r.bottom>0)el.classList.add('in')})},1000);
+
+frissit();setInterval(frissit,15000);
 </script>
 </body>
 </html>
