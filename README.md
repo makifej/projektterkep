@@ -84,10 +84,15 @@ $PY projektterkep/projektterkep.py --elo-meres
 ```
 
 Megszámolja a választ adó térkép-lekérdezéseket (`graphify query/explain/path`)
-és az utánuk következő célzott fájlolvasásokat a lekérdezett projektben (Read
-offset/limit-tel, vagy a parancssorban `sed -n`, `head`, `tail` és `grep`
-környező sorokkal), és összeveti azzal, amennyi a teljes fájlok beolvasása lett
-volna. Ami így is a teljes fájlt hozta, az nem számít célzott olvasásnak.
+és az utánuk következő 12 lépésben azoknak a fájloknak a célzott olvasását,
+amelyeket a térkép válasza megnevezett (Read offset/limit-tel, vagy a
+parancssorban `sed -n`, `head`, `tail` és `grep` környező sorokkal). Ezt azzal
+veti össze, amennyi a fájl teljes beolvasása lett volna, munkamenetenként és
+fájlonként egyszer: ugyanannak a fájlnak a második kivonata az elolvasott
+oldalt növeli, a viszonyítási alapot nem. Egy teljes olvasás legfeljebb 2000
+sor, ennyit ad vissza a Read eszköz. Amit a munkamenet egészben is beolvasott,
+azon a térkép nem spórolt, az nulla. Ami így is a teljes fájlt hozta, az nem
+számít célzott olvasásnak.
 
 **Helyi kimutatás** a mérésekről, élő kipróbálással és a projektek térképével:
 
@@ -95,12 +100,17 @@ volna. Ami így is a teljes fájlt hozta, az nem számít célzott olvasásnak.
 $PY projektterkep/kimutatas.py        # http://localhost:4478
 ```
 
-**Első mérésünk (2026-11-07):**
+**Mérésünk (2026-11-10, a javított számolási szabályokkal):**
 
 | Mérés | Térkép nélkül | Térképpel | Spórolás |
 |---|---:|---:|---:|
-| 6 kérdés, 3 projekt | 126 271 token | 21 268 token | 83,2% |
-| Valós használat: 17 lekérdezés, 20 célzott olvasás | 270 032 token | 32 664 token | 87,9% |
+| 6 kérdés, 3 projekt | 125 938 token | 21 447 token | 83,0% |
+| Valós használat: 25 lekérdezés, 9 célzott olvasás | 70 473 token | 24 259 token | 65,6% |
+
+A valós használatnál korábban 87,9% szerepelt itt. Az a mérés túlzott: minden
+kivonatnál újra beszámolta a teljes fájlt, és olyan fájlokat is, amelyeket a
+térkép nem nevezett meg. A fenti szám a javított szabályokkal készült, kis
+mintán (9 olvasás), ezért néhány új lekérdezéstől is sokat mozdulhat.
 
 A kérdések szórása nagy: 95% fölött volt, ahol a kulcsszó sok nagy fájlban
 szerepelt, és -51%, ahol a keresés két kis fájlt talált, a térkép pedig

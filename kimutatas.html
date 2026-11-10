@@ -179,10 +179,10 @@ iframe{width:100%;height:560px;border:1px solid var(--line);border-radius:16px;b
   </section>
 
   <div class="formula">
-    <span><b>Térkép nélkül</b>minden célzott olvasás teljes fájlja</span>
+    <span><b>Térkép nélkül</b>a térkép által megnevezett fájl egészben, munkamenetenként egyszer</span>
     <span><b>Térképpel</b>térkép-válaszok + beolvasott részletek</span>
     <span><b>Megspórolt</b>térkép nélkül - térképpel</span>
-    <span><b>Kimarad</b>más projekt fájlja, teljes fájl beolvasása</span>
+    <span><b>Kimarad</b>amit a térkép nem nevezett meg, és ami egészben is beolvasásra került</span>
   </div>
 </section>
 
@@ -209,8 +209,8 @@ iframe{width:100%;height:560px;border:1px solid var(--line);border-radius:16px;b
 
 <section class="notes reveal" aria-labelledby="hHogy">
   <h2 id="hHogy">Hogyan mérünk</h2>
-  <p>A tokent karakter osztva 4-gyel becsüljük, mindkét oldalon ugyanígy. Kérdésenként térkép nélkül kulcsszavas keresés fut, és az 5 legjobb találat teljes fájlja számít. Térképpel a lekérdezés kimenete és az első 3 megtalált hely körüli 40-40 sor.</p>
-  <p>A valós használat a választ adó térkép-lekérdezéseket számolja, és az utánuk következő 12 lépésben a lekérdezett projekt fájljainak részleges olvasását: Read offset/limit-tel, vagy a parancssorban sed -n, head, tail és grep környező sorokkal. Ami így is a teljes fájlt hozta (head -20 egy 7 soros fájlon), az nem célzott olvasás. A viszonyítás feltételezés: hogy térkép nélkül a teljes fájlt olvasta volna be. Ahol a kulcsszavas keresés semmit nem talált, az a mérés nem számít bele az összesítésbe. A negatív eredmények is látszanak. Minden a gépeden fut, semmi nem megy ki innen.</p>
+  <p>A tokent karakter osztva 4-gyel becsüljük, mindkét oldalon ugyanígy. Kérdésenként térkép nélkül kulcsszavas keresés fut azokban a fájlokban, amelyekből a térkép tartalmat ismer (így egy adatfájl nem növelheti meg ezt az oldalt), és az 5 legjobb találat teljes fájlja számít, fájlonként legfeljebb 2000 sor. Térképpel a lekérdezés kimenete és az első 3 megtalált hely körüli 40-40 sor.</p>
+  <p>A valós használat a választ adó térkép-lekérdezéseket számolja, és az utánuk következő 12 lépésben azoknak a fájloknak a részleges olvasását, amelyeket a térkép válasza megnevezett: Read offset/limit-tel, vagy a parancssorban sed -n, head, tail és grep környező sorokkal. A viszonyítás a fájl teljes beolvasása, munkamenetenként és fájlonként egyszer: ugyanannak a fájlnak a második kivonata az elolvasott oldalt növeli, a viszonyítási alapot nem. Egy teljes olvasás legfeljebb 2000 sor, ennyit ad vissza a Read eszköz. Amit a munkamenet egészben is beolvasott, azon a térkép nem spórolt, az nulla. Ami így is a teljes fájlt hozta (head -20 egy 7 soros fájlon), az nem célzott olvasás. A viszonyítás továbbra is feltételezés: térkép nélkül lehet, hogy kevesebbet vagy többet olvasott volna. Ahol a kulcsszavas keresés semmit nem talált, az a mérés nem számít bele az összesítésbe, és a korábbi számolási szabályokkal futott mérések sem, ezek a listában maradnak. A negatív eredmények is látszanak. Minden a gépeden fut, semmi nem megy ki innen.</p>
 </section>
 </main>
 
@@ -231,10 +231,11 @@ function meter(p){
   const w=Math.min(50,Math.abs(p)/2),neg=p<0;
   return `<div class="meter"><div class="m"><span class="zero"></span><i style="${neg?'right:50%':'left:50%'};width:${w}%;background:${neg?'var(--red)':'var(--lime)'}"></i></div><b style="color:${neg?'var(--red)':'var(--ink)'}">${neg?'':'+'}${pc(p)}</b></div>`;
 }
+let MODSZER=null;
 function sor(m,uj){
   const n=m.terkep_nelkul.token,v=m.terkeppel.token;
   const hol=n?`${m.terkep_nelkul.talalt_fajl} fájlban talált kulcsszót`:'a kulcsszavas keresés semmit nem talált';
-  return `<tr${uj?' class="uj"':''}><td class="name">${esc(m.kerdes)}<small>${esc(m.projekt)} · ${hol}</small></td><td class="r tsz">${n?rov(n):'nincs találat'}</td><td class="r tsz">${rov(v)}</td><td>${meter(n?m.sporolt_szazalek:null)}</td></tr>`;
+  return `<tr${uj?' class="uj"':''}><td class="name">${esc(m.kerdes)}<small>${esc(m.projekt)} · ${hol}${m.modszer===MODSZER?'':' · korábbi számolási szabály'}</small></td><td class="r tsz">${n?rov(n):'nincs találat'}</td><td class="r tsz">${rov(v)}</td><td>${meter(n?m.sporolt_szazalek:null)}</td></tr>`;
 }
 const fej='<table><thead><tr><th>Kérdés</th><th class="r tsz">Térkép nélkül</th><th class="r tsz">Térképpel</th><th>Kevesebb</th></tr></thead><tbody>';
 
@@ -256,8 +257,8 @@ async function frissit(){
     const d=await (await fetch('/api/adat')).json();
     if(d.elo){$('pill').classList.remove('busy');$('pillT').textContent='Élő';$('allapot').innerHTML=`<b class="upd">Frissítve ${esc(d.elo_ido)}</b>, a Claude Code naplóiból ezen a gépen. Semmi nem megy ki innen.`;eloRajz(d.elo)}
     else{$('pillT').textContent='Mérés fut';$('allapot').textContent='A Claude Code naplóit olvasom ezen a gépen, ez az első betöltéskor kb. fél perc.'}
-    const o=d.osszesites;
-    $('osszal').textContent=o.ervenyes?`${o.ervenyes} értékelhető mérés, ${pc(o.sporolt_szazalek)} kevesebb token összesen`:'';
+    const o=d.osszesites;MODSZER=d.modszer;
+    $('osszal').textContent=o.ervenyes?`${o.ervenyes} értékelhető mérés, ${pc(o.sporolt_szazalek)} kevesebb token összesen`:d.meresek.length?'a mostani számolási szabályokkal még nincs mérés':'';
     $('lista').innerHTML=d.meresek.length?fej+d.meresek.map((m,i)=>sor(m,ujKerdes&&i===0&&m.kerdes===ujKerdes)).join('')+'</tbody></table>'
       :'<p class="empty">Még nincs mérés. Fent válassz projektet, és kérdezz valamit, amit a Claude-tól is kérdeznél arról a kódról.</p>';
     if(!projektekBetoltve){projektekBetoltve=true;

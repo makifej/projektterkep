@@ -45,7 +45,15 @@ def elo_frissit():
 def meresek() -> list[dict]:
     if not NAPLO.exists():
         return []
-    return [json.loads(s) for s in NAPLO.read_text(encoding="utf-8").splitlines() if s.strip()]
+    sorok = []
+    for s in NAPLO.read_text(encoding="utf-8").splitlines():
+        try:
+            r = json.loads(s) if s.strip() else None
+        except ValueError:   # egy sérült sor miatt ne álljon le az egész oldal
+            continue
+        if isinstance(r, dict) and isinstance(r.get("terkep_nelkul"), dict) and isinstance(r.get("terkeppel"), dict):
+            sorok.append(r)
+    return sorok
 
 
 def projektek_terkeppel() -> list[dict]:
@@ -85,7 +93,7 @@ class Kezelo(BaseHTTPRequestHandler):
             with ZAR:
                 elo, ido = ELO["adat"], ELO["ido"]
             return self._json({"elo": elo, "elo_ido": ido, "elo_fut": ELO["fut"],
-                               "osszesites": M.osszesites(NAPLO), "meresek": meresek()[-50:][::-1],
+                               "osszesites": M.osszesites(NAPLO), "modszer": M.MODSZER, "meresek": meresek()[-50:][::-1],
                                "projektek": projektek_terkeppel(), "munkaterulet": P.GYOKER.name})
         if ut.startswith("/terkep/"):
             nev = ut.split("/")[2]

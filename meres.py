@@ -38,6 +38,8 @@ MAX_FAJL = 400_000            # ennél nagyobb fájlt (generált, minifikált) n
 TALALAT_FAJL = 5              # térkép nélkül ennyi legjobb találatot olvas be az agent
 RESZLET_HELY = 3              # térképpel ennyi megtalált helyet nyit meg
 RESZLET_SOR = 40              # helyenként ennyi sort olvas a megadott sor körül
+OLVASAS_SOR = 2000            # egy teljes Read legfeljebb ennyi sort ad vissza
+MODSZER = 2                   # a számolási szabályok változata, minden eredmény mellé kerül
 STOPSZO = {"hogy", "hogyan", "milyen", "melyik", "mikor", "miért", "mert", "vagy", "van",
            "nincs", "ahol", "amit", "amely", "kell", "lesz", "volt", "egy", "ezt", "azt",
            "where", "what", "which", "does", "that", "this", "with", "from", "the", "and"}
@@ -64,11 +66,51 @@ def _szovegfajlok(proj: Path):
             yield p
 
 
-def terkep_nelkul(proj: Path, kerdes: str) -> dict:
-    """Kulcsszavas keresés, a legtöbb kulcsszót tartalmazó fájlok teljes beolvasása."""
+def teljes_olvasas_token(szoveg: str, akkori_sor: int | None = None, szamozott: bool = False) -> int:
+    """Mennyi lett volna a fájl teljes beolvasása: egy Read legfeljebb OLVASAS_SOR sort ad
+    vissza, a hosszabb fájl addig számít. Ha a napló megőrizte, hány soros volt a fájl
+    az olvasáskor, az azóta megnőtt vagy rövidült fájlt arra arányosítja. A `szamozott`
+    a Read sorszám-előtagját is hozzáadja, mert a kivonatokban is benne van."""
+    sorok = szoveg.splitlines()
+    latszik = min(len(sorok), OLVASAS_SOR)
+    kar = len(szoveg) if len(sorok) <= OLVASAS_SOR else len("\n".join(sorok[:OLVASAS_SOR]))
+    if akkori_sor and latszik and akkori_sor != len(sorok):
+        akkor = min(akkori_sor, OLVASAS_SOR)
+        kar, latszik = round(kar / latszik * akkor), akkor
+    if szamozott:
+        kar += sum(len(str(i)) + 1 for i in range(1, latszik + 1))
+    return round(kar / 4)
+
+
+def _terkep_fajljai(graph: Path | None, gyoker: Path | None) -> list[Path]:
+    """A fájlok, amelyekből a térkép tartalmat ismer (függvényt, osztályt, címsort), nem
+    azok, amelyeket csak a mappafában sorol fel. A térkép nélküli keresés ugyanezeken
+    fut, így egy nagy adatfájl nem növelheti meg azt az oldalt."""
+    if not graph or not gyoker:
+        return []
+    try:
+        csomopontok = json.loads(graph.read_text(encoding="utf-8")).get("nodes", [])
+    except (OSError, ValueError):
+        return []
+    fa = {"file", "folder", "project", "workspace", "fajl", "mappa", "projekt"}
+    ki = []
+    for src in sorted({n.get("source_file") for n in csomopontok
+                       if n.get("source_file") and n.get("node_kind") not in fa}):
+        f = gyoker / src
+        try:
+            if f.is_file() and f.suffix.lower() in SZOVEG_KITERJ and f.stat().st_size <= MAX_FAJL:
+                ki.append(f)
+        except OSError:
+            pass
+    return ki
+
+
+def terkep_nelkul(proj: Path, kerdes: str, graph: Path | None = None, gyoker: Path | None = None) -> dict:
+    """Kulcsszavas keresés, a legtöbb kulcsszót tartalmazó fájlok teljes beolvasása
+    (fájlonként egy Read, vagyis legfeljebb OLVASAS_SOR sor)."""
     szavak = kulcsszavak(kerdes)
     rangsor = []
-    for f in _szovegfajlok(proj):
+    for f in _terkep_fajljai(graph, gyoker) or _szovegfajlok(proj):
         try:
             t = f.read_text(encoding="utf-8", errors="ignore")
         except OSError:
@@ -80,8 +122,8 @@ def terkep_nelkul(proj: Path, kerdes: str) -> dict:
     rangsor.sort(reverse=True)
     olvasott = rangsor[:TALALAT_FAJL]
     return {"kulcsszavak": szavak, "talalt_fajl": len(rangsor),
-            "olvasott": [str(f.relative_to(proj)) for _, _, f, _ in olvasott],
-            "token": sum(token(t) for _, _, _, t in olvasott)}
+            "olvasott": [str(f.relative_to(proj)) if f.is_relative_to(proj) else f.name for _, _, f, _ in olvasott],
+            "token": sum(teljes_olvasas_token(t) for _, _, _, t in olvasott)}
 
 
 def graphify_parancs() -> list[str]:
@@ -115,10 +157,10 @@ def terkeppel(graph: Path, gyoker: Path, kerdes: str) -> dict:
 
 
 def meres(proj: Path, graph: Path, gyoker: Path, kerdes: str, naplo: Path) -> dict:
-    nelkul = terkep_nelkul(proj, kerdes)
+    nelkul = terkep_nelkul(proj, kerdes, graph, gyoker)
     vele = terkeppel(graph, gyoker, kerdes)
     sporolt = nelkul["token"] - vele["token"]
-    eredm = {"ido": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "projekt": proj.name, "kerdes": kerdes,
+    eredm = {"ido": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "modszer": MODSZER, "projekt": proj.name, "kerdes": kerdes,
              "terkep_nelkul": nelkul, "terkeppel": vele, "sporolt_token": sporolt,
              "sporolt_szazalek": round(100 * sporolt / nelkul["token"], 1) if nelkul["token"] else None}
     naplo.parent.mkdir(parents=True, exist_ok=True)
@@ -130,8 +172,16 @@ def meres(proj: Path, graph: Path, gyoker: Path, kerdes: str, naplo: Path) -> di
 def osszesites(naplo: Path) -> dict:
     if not naplo.exists():
         return {"meres": 0}
-    sorok = [json.loads(s) for s in naplo.read_text(encoding="utf-8").splitlines() if s.strip()]
-    ervenyes = [s for s in sorok if s["terkep_nelkul"]["token"] > 0]
+    sorok = []
+    for s in naplo.read_text(encoding="utf-8").splitlines():
+        try:
+            r = json.loads(s) if s.strip() else None
+        except ValueError:
+            continue
+        if isinstance(r, dict) and isinstance(r.get("terkep_nelkul"), dict) and isinstance(r.get("terkeppel"), dict):
+            sorok.append(r)
+    # a korábbi számolási szabályokkal készült eredmények a naplóban maradnak, az összegből kimaradnak
+    ervenyes = [s for s in sorok if s.get("modszer") == MODSZER and (s["terkep_nelkul"].get("token") or 0) > 0]
     nelkul = sum(s["terkep_nelkul"]["token"] for s in ervenyes)
     vele = sum(s["terkeppel"]["token"] for s in ervenyes)
     return {"meres": len(sorok), "ervenyes": len(ervenyes), "terkep_nelkul_token": nelkul,
@@ -423,13 +473,46 @@ def parancssori_celzott_fajlok(parancs: str, cwd: str | None) -> list[tuple[Path
     return talalt
 
 
-TERKEP_FORRAS = re.compile(r"\[src=([^\s\]]+)|^\s*Source:\s+(\S+)", re.M)
+TERKEP_FORRAS = re.compile(r"\[src=([^\s\]]+)|^\s*Source:\s+(\S+)|\]\s+(\S+?):L\d+\s*$", re.M)
+# amit egy Read visszaadott, a napló saját feljegyzéséből: mutatott sorok, első sor, a fájl sorai
+READ_ADAT = re.compile(r'"numLines"\s*:\s*(\d+)\s*,\s*"startLine"\s*:\s*(\d+)\s*,\s*"totalLines"\s*:\s*(\d+)')
+
+
+def terkep_forrasok(valasz: str) -> set[str]:
+    """A forrásfájlok, amelyeket a térkép válasza megnevezett."""
+    return {(a or b or c).lstrip("./") for a, b, c in TERKEP_FORRAS.findall(valasz) if (a or b or c).strip("./")}
+
+
+def _megnevezte(p: Path, forrasok: set[str]) -> bool:
+    s = str(p)
+    return any(s.endswith("/" + x) for x in forrasok)
+
+
+def parancssori_teljes_fajlok(parancs: str, cwd: str | None) -> list[Path]:
+    """Szövegfájlok, amelyeket egy parancs egészben kiírt: `cat fájl` vagy `nl fájl`,
+    ami után a csővezetékben nincs más."""
+    itt = Path(cwd) if cwd else None
+    ki = []
+    for cso in _lepesek(parancs):
+        if cso[0][0] == "cd":
+            itt = _feloldas(cso[0][1] if len(cso[0]) > 1 else "~", itt)
+            continue
+        fajta, arg, _ = _lepes_olvas(cso[-1])
+        if fajta == "forras":
+            for a in arg:
+                p = _feloldas(a, itt)
+                try:
+                    if p is not None and p.suffix.lower() in SZOVEG_KITERJ and p.is_file():
+                        ki.append(p)
+                except OSError:
+                    pass
+    return ki
 
 
 def _gyokerek(valasz: str, projekt: str) -> set[str]:
     """A projektmappák, amelyekről a térkép válaszolt: a mutatott forrásútvonalak első
     része ([src=quicknews/build/x.py] -> quicknews) és a lekérdezett gráf projektje."""
-    forrasok = {(a or b).lstrip("./") for a, b in TERKEP_FORRAS.findall(valasz)}
+    forrasok = terkep_forrasok(valasz)
     g = {x.split("/")[0] for x in forrasok if "/" in x}
     if projekt:
         g.add(projekt)
@@ -454,6 +537,7 @@ def _naplo_esemenyek(fajl: Path, ablak: int) -> list[tuple]:
     eredményét. A képernyőképeket és más nagy eredményeket kibontás nélkül átugorja,
     így egy gigabájtos napló sosem kerül egyben a memóriába."""
     hivasok, eredmenyek, kell = [], {}, set()
+    read_idk, adat = set(), {}
     try:
         fh = fajl.open(encoding="utf-8", errors="ignore")
     except OSError:
@@ -474,9 +558,17 @@ def _naplo_esemenyek(fajl: Path, ablak: int) -> list[tuple]:
                         inp = b.get("input") or {}
                         if b.get("name") == "Bash" or (b.get("name") == "Read" and ("offset" in inp or "limit" in inp)):
                             kell.add(b.get("id"))
+                        if b.get("name") == "Read":
+                            read_idk.add(b.get("id"))
                         hivasok.append((b, d.get("cwd")))
             elif '"tool_result"' in s:
-                if not any(x in kell for x in EREDMENY_ID.findall(s)):
+                idk = EREDMENY_ID.findall(s)
+                rid = next((x for x in idk if x in read_idk), None)
+                if rid:
+                    talalt = READ_ADAT.findall(s)
+                    if talalt:                    # az utolsó a napló feljegyzése, nem fájltartalom
+                        adat[rid] = tuple(int(x) for x in talalt[-1])
+                if not any(x in kell for x in idk):
                     continue
                 try:
                     d = json.loads(s)
@@ -486,8 +578,50 @@ def _naplo_esemenyek(fajl: Path, ablak: int) -> list[tuple]:
                     if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("tool_use_id") in kell:
                         eredmenyek[b.get("tool_use_id")] = _tartalom_szoveg(b.get("content"))
 
+    # Fájlok, amelyeket a munkamenet valamikor egészben beolvasott (minden sort visszaadó
+    # Read, vagy `cat fájl`). Ezeken a térkép nem spórolt: a kivonat előtt a fájl már
+    # megvolt, utána pedig az egész úgyis beolvasásra került.
+    egeszben = set()
+    for hivas in hivasok:
+        if hivas is None:
+            continue
+        h, cwd = hivas
+        inp = h.get("input") or {}
+        if h.get("name") == "Read":
+            m = adat.get(h.get("id"))
+            if m:
+                if m[1] <= 1 and m[0] >= m[2]:
+                    egeszben.add(str(Path(inp.get("file_path", ""))))
+            elif "offset" not in inp and "limit" not in inp:
+                try:
+                    f = Path(inp.get("file_path", ""))
+                    if (f.suffix.lower() in SZOVEG_KITERJ and f.is_file() and f.stat().st_size <= MAX_FAJL
+                            and len(f.read_text(encoding="utf-8", errors="ignore").splitlines()) <= OLVASAS_SOR):
+                        egeszben.add(str(f))
+                except OSError:
+                    pass
+        elif h.get("name") == "Bash" and re.search(r"\b(?:cat|nl)\b", inp.get("command", "")):
+            egeszben.update(str(p) for p in parancssori_teljes_fajlok(inp.get("command", ""), cwd))
+
     esem, kesz = [], set()
-    utolso_lek, gyokerek = None, set()
+    beszamitva = set()   # fájlok, amelyek teljes méretével ez a munkamenet már összevetett
+    utolso_lek, gyokerek, forrasok = None, set(), set()
+
+    def terkep_vezette(f: Path) -> bool:
+        # a válasz megnevezte a fájlt; ha a válasz egyetlen fájlt sem nevez meg (két
+        # csomópont közti út), a lekérdezett projekt fájljai számítanak
+        return _megnevezte(f, forrasok) if forrasok else _projektben(f, gyokerek)
+
+    def alap(f: Path, teljes: int) -> int:
+        """A teljes fájl munkamenetenként és fájlonként egyszer számít: ugyanannak a
+        fájlnak a második kivonata nem lett volna második teljes olvasás. Olyan fájlnál
+        soha, amelyet a munkamenet egészben is beolvasott."""
+        kulcs = str(f)
+        if kulcs in egeszben or kulcs in beszamitva:
+            return 0
+        beszamitva.add(kulcs)
+        return teljes
+
     for i, hivas in enumerate(hivasok):
         if hivas is None:
             continue
@@ -496,7 +630,10 @@ def _naplo_esemenyek(fajl: Path, ablak: int) -> list[tuple]:
         if (nev == "Bash" and GRAPHIFY_HIVAS.search(inp.get("command", ""))
                 and TERKEP_VALASZ.search(eredmenyek.get(hid, ""))):
             uj = _gyokerek(eredmenyek[hid], _projekt_neve(inp.get("command", "")))
-            gyokerek = gyokerek | uj if utolso_lek is not None and i - utolso_lek <= ablak else uj
+            ujf = terkep_forrasok(eredmenyek[hid])
+            ablakban = utolso_lek is not None and i - utolso_lek <= ablak
+            gyokerek = gyokerek | uj if ablakban else uj
+            forrasok = forrasok | ujf if ablakban else ujf
             utolso_lek = i
             if hid not in kesz:
                 kesz.add(hid)
@@ -504,38 +641,47 @@ def _naplo_esemenyek(fajl: Path, ablak: int) -> list[tuple]:
         elif (nev == "Read" and utolso_lek is not None and i - utolso_lek <= ablak
               and ("offset" in inp or "limit" in inp) and hid not in kesz):
             f = Path(inp.get("file_path", ""))
-            if (hid in eredmenyek and f.is_file() and f.stat().st_size <= MAX_FAJL * 5
-                    and _projektben(f, gyokerek)):
+            try:
+                jo = hid in eredmenyek and f.is_file() and f.stat().st_size <= MAX_FAJL * 5 and terkep_vezette(f)
+            except OSError:
+                jo = False
+            if jo:
                 szoveg = f.read_text(encoding="utf-8", errors="ignore")
-                eleje = max(1, int(inp.get("offset") or 1))
-                limit = inp.get("limit")
+                m = adat.get(hid)
+                if m:        # a napló saját feljegyzése: a mutatott sorok és a fájl akkori sorai
+                    resz, akkori = m[0] < m[2], m[2]
+                else:
+                    eleje, limit = max(1, int(inp.get("offset") or 1)), inp.get("limit")
+                    resz = eleje > 1 or bool(limit and eleje + int(limit) - 1 < len(szoveg.splitlines()))
+                    akkori = None
                 # ami a teljes fájlt beolvasta, az nem célzott olvasás
-                if eleje > 1 or (limit and eleje + int(limit) - 1 < len(szoveg.splitlines())):
+                if resz:
                     kesz.add(hid)
-                    esem += [(hid, "celzott", 1), (hid, "olvasott_token", token(eredmenyek[hid])),
-                             (hid, "teljes_token", token(szoveg))]
+                    olv = token(eredmenyek[hid])
+                    teljes = alap(f, max(olv, teljes_olvasas_token(szoveg, akkori, szamozott=True)))
+                    esem += [(hid, "celzott", 1), (hid, "olvasott_token", olv), (hid, "teljes_token", teljes)]
         elif (nev == "Bash" and utolso_lek is not None and i - utolso_lek <= ablak
               and hid not in kesz and hid in eredmenyek):
-            # csak a lekérdezett projekt fájljai: egy jegyzetbe, naplóba vagy más
+            # csak a térkép által megnevezett fájlok: egy jegyzetbe, naplóba vagy más
             # fájlba nézés közvetlenül a lekérdezés után nem a térkép spórolása
             ki = token(eredmenyek[hid])
             fajlok = []
             for f, mod in parancssori_celzott_fajlok(inp.get("command", ""), cwd):
-                if not _projektben(f, gyokerek):
+                if not terkep_vezette(f):
                     continue
                 szoveg = f.read_text(encoding="utf-8", errors="ignore")
                 resz = reszleges(szoveg, mod)
                 # ami a teljes fájlt kiírta (head -20 egy 7 soros fájlon), az nem célzott
                 # olvasás; ha a parancsból nem dönthető el, a kimenet legyen kisebb a fájlnál
                 if resz or (resz is None and ki < token(szoveg)):
-                    fajlok.append((f, token(szoveg)))
+                    fajlok.append((f, teljes_olvasas_token(szoveg)))
             if fajlok:
                 kesz.add(hid)
-                teljes = sum(t for _, t in fajlok)
+                meret = sum(t for _, t in fajlok)
                 # a teljes kimenet számít térképpel olvasottnak, a máshonnan jött sorok
                 # is, de soha nem több, mint maguk a teljes fájlok
-                esem += [(hid, "celzott", len(fajlok)), (hid, "olvasott_token", min(ki, teljes)),
-                         (hid, "teljes_token", teljes)]
+                esem += [(hid, "celzott", len(fajlok)), (hid, "olvasott_token", min(ki, meret)),
+                         (hid, "teljes_token", sum(alap(f, t) for f, t in fajlok))]
     return esem
 
 
@@ -543,7 +689,7 @@ def elo_meres(naplo_gyoker: Path = Path.home() / ".claude" / "projects", ablak: 
     """A munkamenet-naplókból: a választ adó térkép-lekérdezések, és az utánuk
     következő célzott fájlolvasások (Read offset/limit-tel, vagy a parancssorban
     sed -n, head, tail, grep környező sorokkal) tényleges és teljes mérete. Csak a
-    lekérdezett projekt fájljai számítanak. A munkamenetek másolatai miatt minden
+    térkép által megnevezett fájlok számítanak, a teljes méret munkamenetenként egyszer. A munkamenetek másolatai miatt minden
     eszközhívás azonosító szerint csak egyszer számít. Az előző futás óta nem változott
     naplókat a memóriából veszi, nem olvassa be újra."""
     latott = set()
